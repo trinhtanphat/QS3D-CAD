@@ -1,5 +1,6 @@
 using QS3D.Platform.Cad.Abstractions;
 using QS3D.Platform.Domain;
+using QS3D.Platform.Persistence;
 
 namespace QS3D.Cad.Host;
 
@@ -84,22 +85,7 @@ public sealed class StandaloneSemanticWorkspace
     }
 
     private static SemanticProject CloneProject(SemanticProject source)
-    {
-        var clone = new SemanticProject(source.Id, source.Name);
-        foreach (var floor in source.Floors) clone.AddFloor(floor);
-        foreach (var zone in source.Zones) clone.AddZone(zone);
-        foreach (var family in source.Families) clone.AddFamily(family);
-        foreach (var element in source.Elements)
-        {
-            var copy = new SemanticElement(element.Id, element.Kind, element.Name, element.FamilyId);
-            copy.AssignLocation(element.FloorId, element.ZoneId);
-            copy.SetSource(element.SourceReference);
-            foreach (var reference in element.GeneratedReferences) copy.AddGeneratedReference(reference);
-            foreach (var property in element.Properties) copy.SetProperty(property.Key, property.Value);
-            clone.AddElement(copy);
-        }
-        return clone;
-    }
+        => SemanticSnapshotService.Restore(SemanticSnapshotService.Capture(source));
 
     private sealed class ProjectState
     {
