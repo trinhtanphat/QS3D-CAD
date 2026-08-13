@@ -86,8 +86,8 @@ public sealed class StandaloneCadApplication
         var (undo, redo) = EnsureHistory(document.Id);
         if (undo.Count == 0) return CommandResult.Failure("Nothing to undo.");
         var entry = undo.Peek();
-        if (document.Database.Revision != entry.DatabaseRevision || Projects.Revision(document) != entry.SemanticRevision)
-            return CommandResult.Failure("Undo history is stale because the drawing or semantic project changed outside the application command journal.");
+        if (IsStale(document, entry))
+            return CommandResult.Failure("Undo history is stale because a changed domain was mutated outside the application command journal.");
         if (entry.DatabaseChanged && !document.Database.History.CanUndo)
             return CommandResult.Failure("Drawing history cannot satisfy the requested undo.");
         if (entry.SemanticChanged && !Projects.CanUndo(document))
@@ -107,8 +107,8 @@ public sealed class StandaloneCadApplication
         var (undo, redo) = EnsureHistory(document.Id);
         if (redo.Count == 0) return CommandResult.Failure("Nothing to redo.");
         var entry = redo.Peek();
-        if (document.Database.Revision != entry.DatabaseRevision || Projects.Revision(document) != entry.SemanticRevision)
-            return CommandResult.Failure("Redo history is stale because the drawing or semantic project changed outside the application command journal.");
+        if (IsStale(document, entry))
+            return CommandResult.Failure("Redo history is stale because a changed domain was mutated outside the application command journal.");
         if (entry.DatabaseChanged && !document.Database.History.CanRedo)
             return CommandResult.Failure("Drawing history cannot satisfy the requested redo.");
         if (entry.SemanticChanged && !Projects.CanRedo(document))
@@ -121,6 +121,12 @@ public sealed class StandaloneCadApplication
         var result = CommandResult.Success("Redo complete.");
         document.Editor.WriteMessage(result.Message!);
         return result;
+    }
+
+    private bool IsStale(ICadDocument document, HistoryEntry entry)
+    {
+        return (entry.DatabaseChanged && document.Database.Revision != entry.DatabaseRevision)
+            || (entry.SemanticChanged && Projects.Revision(document) != entry.SemanticRevision);
     }
 
     private (Stack<HistoryEntry> Undo, Stack<HistoryEntry> Redo) EnsureHistory(DrawingId drawingId)
