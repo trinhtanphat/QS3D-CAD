@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    BlockCommands.cs is staged source for the next Platform pin. The current
+    standalone baseline must not compile that source against a Platform gitlink
+    that does not yet expose the block transaction contract. Remove this gate
+    atomically with the Platform gitlink advance, command registration,
+    schema-v4 persistence and smoke coverage.
+  -->
+  <ItemGroup Condition="'$(MSBuildProjectName)' == 'QS3D.Cad.Host'">
+    <Compile Remove="$(MSBuildProjectDirectory)\BlockCommands.cs" />
+  </ItemGroup>
+</Project>
