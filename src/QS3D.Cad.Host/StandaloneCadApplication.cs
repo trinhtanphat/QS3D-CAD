@@ -20,7 +20,6 @@ public sealed class StandaloneCadApplication
         LayerCommands.RegisterAll(Commands);
         BlockCommands.RegisterAll(Commands);
         SemanticCommands.RegisterAll(Commands, Projects);
-        SemanticAuthoringCommands.RegisterAll(Commands, Projects);
         AdvancedReferenceCommands.RegisterAll(Commands);
         XrefReferenceCommands.RegisterAll(Commands);
         LayoutReferenceCommands.RegisterAll(Commands);
