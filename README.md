@@ -46,11 +46,15 @@ Implemented bootstrap commands:
 - `QSHEALTH` — run shared Platform semantic-health diagnostics.
 - `QSCOUNT [kind]` — deterministic semantic element count through the shared Quantity engine.
 
+The standalone application journal orders CAD and semantic changes together. `UNDO`/`REDO` fail closed when a changed domain was mutated outside the application journal rather than risking reversal of the wrong operation.
+
 The desktop shell currently visualizes the database as an entity list until the production viewport adapter is connected.
 
-### Bootstrap persistence limitation
+### Bootstrap persistence
 
-Schema-v1 `*.qs3d-bootstrap.json` persists the in-memory CAD entity snapshot only. The semantic workspace commands above are intentionally in-memory at this stage; semantic persistence will move into the versioned `.qs3d`/project persistence layer rather than being silently mixed into the temporary drawing fixture format.
+Schema-v2 `*.qs3d-bootstrap.json` persists both the in-memory CAD entity snapshot and the semantic project, including stable project/element IDs and source/generated CAD references. The loader remains backward compatible with schema 1, which contained CAD entities only.
+
+This format remains a deterministic architecture fixture, **not** the final `.qs3d` project container and not a DWG interoperability claim.
 
 ## Native SDK boundary
 

@@ -9,6 +9,13 @@ public sealed class StandaloneSemanticWorkspace
 
     public SemanticProject Ensure(ICadDocument document) => EnsureState(document).Project;
 
+    public void Attach(ICadDocument document, SemanticProject project)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(project);
+        _states[document.Id] = new ProjectState(CloneProject(project));
+    }
+
     public SemanticProject Get(ICadDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);

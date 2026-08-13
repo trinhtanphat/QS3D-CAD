@@ -35,18 +35,19 @@ public sealed class StandaloneCadApplication
 
     public ICadDocument OpenBootstrap(string path)
     {
-        var document = Store.Load(path);
-        Documents.Open(document);
-        Projects.Ensure(document);
-        EnsureHistory(document.Id);
-        return document;
+        var loaded = Store.LoadWithProject(path);
+        Documents.Open(loaded.Document);
+        if (loaded.Project is null) Projects.Ensure(loaded.Document);
+        else Projects.Attach(loaded.Document, loaded.Project);
+        EnsureHistory(loaded.Document.Id);
+        return loaded.Document;
     }
 
     public void SaveBootstrap(string path)
     {
         var document = Documents.ActiveDocument as InMemoryCadDocument
             ?? throw new InvalidOperationException("No bootstrap document is active.");
-        Store.Save(document, path);
+        Store.Save(document, Projects.Get(document), path);
     }
 
     public CommandResult Execute(string commandLine, CancellationToken cancellationToken = default)

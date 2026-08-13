@@ -10,7 +10,7 @@ var tests = new (string Name, Action Run)[]
     ("semantic workspace commands", SemanticWorkspaceCommands),
     ("global undo orders CAD and semantic changes", GlobalUndoOrdersCadAndSemanticChanges),
     ("external mutation invalidates app undo", ExternalMutationInvalidatesAppUndo),
-    ("bootstrap save load round trip", BootstrapSaveLoadRoundTrip)
+    ("bootstrap save load CAD and semantic round trip", BootstrapSaveLoadRoundTrip)
 };
 
 foreach (var test in tests)
@@ -124,6 +124,8 @@ static void BootstrapSaveLoadRoundTrip()
     var source = app.NewDocument("Persistence");
     Success(app.Execute("LINE 1 2 3 4"));
     Success(app.Execute("CIRCLE 5 6 7"));
+    Success(app.Execute("QSTAG 1 Wall \"Persisted Wall\""));
+    var sourceProjectId = app.Projects.Get(source).Id;
     var path = Path.Combine(Path.GetTempPath(), $"qs3d-{Guid.NewGuid():N}.qs3d-bootstrap.json");
     try
     {
@@ -132,8 +134,15 @@ static void BootstrapSaveLoadRoundTrip()
         var loaded = second.OpenBootstrap(path);
         Equal(source.Id, loaded.Id);
         Equal(2, Count(loaded.Database));
-        using var read = loaded.Database.BeginTransaction(CadTransactionMode.ReadOnly);
-        Equal(CadEntityKind.Line, read.Get(new CadHandle("1"))!.Kind);
+        using (var read = loaded.Database.BeginTransaction(CadTransactionMode.ReadOnly))
+            Equal(CadEntityKind.Line, read.Get(new CadHandle("1"))!.Kind);
+        var loadedProject = second.Projects.Get(loaded);
+        Equal(sourceProjectId, loadedProject.Id);
+        Equal(1, loadedProject.Elements.Count);
+        var loadedElement = loadedProject.Elements.Single();
+        Equal("Persisted Wall", loadedElement.Name);
+        Require(loadedElement.SourceReference.HasValue && loadedElement.SourceReference.Value.Handle == new CadHandle("1"), "semantic source handle must survive bootstrap round trip");
+        Success(second.Execute("QSHEALTH"));
     }
     finally
     {
