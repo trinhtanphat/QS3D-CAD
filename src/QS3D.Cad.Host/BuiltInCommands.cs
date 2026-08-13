@@ -31,6 +31,14 @@ public static class BuiltInCommands
     private static Dictionary<string, string> Properties(params (string Key, double Value)[] values)
         => values.ToDictionary(static x => x.Key, static x => x.Value.ToString("R", CultureInfo.InvariantCulture), StringComparer.Ordinal);
 
+    private static Dictionary<string, string> CloneProperties(IReadOnlyDictionary<string, string> source)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var pair in source)
+            result.Add(pair.Key, pair.Value);
+        return result;
+    }
+
     private static CommandResult Usage(string text) => CommandResult.Failure($"Usage: {text}");
 
     private sealed class LineCommand : ICadCommand
@@ -122,7 +130,7 @@ public static class BuiltInCommands
 
         private static IReadOnlyDictionary<string, string> TranslateProperties(IReadOnlyDictionary<string, string> source, double dx, double dy)
         {
-            var result = new Dictionary<string, string>(source, StringComparer.Ordinal);
+            var result = CloneProperties(source);
             Shift(result, "x1", dx); Shift(result, "x2", dx); Shift(result, "cx", dx);
             Shift(result, "y1", dy); Shift(result, "y2", dy); Shift(result, "cy", dy);
             return result;
@@ -148,8 +156,11 @@ public static class BuiltInCommands
             {
                 var handles = context.Arguments.Select(static x => new CadHandle(x)).ToArray();
                 using var tx = context.Document.Database.BeginTransaction(CadTransactionMode.ReadOnly);
-                var missing = handles.FirstOrDefault(x => tx.Get(x) is null);
-                if (missing.Value is not null) return CommandResult.Failure($"Entity {missing} does not exist.");
+                foreach (var handle in handles)
+                {
+                    if (tx.Get(handle) is null)
+                        return CommandResult.Failure($"Entity {handle} does not exist.");
+                }
                 context.Document.Editor.Selection.Set(handles);
                 return CommandResult.Success($"Selected {handles.Length} object(s).");
             }
