@@ -26,17 +26,18 @@ require(HOST / "Qs3dBootstrapPackageStore.cs", (
 require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "IsValid", "PublishBackup", "File.Move"))
 require(HOST / "Qs3dBootstrapRecoveryReader.cs", ("RecoveredFromBackup", "PrimaryError", "BackupPath"))
 require(HOST / "StandaloneCadPackageExtensions.cs", ("SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery"))
-require(HOST / "CadBackendPolicy.cs", ("CadBackendKind.Native", "RequireNative", "Production"))
-require(HOST / "CadBackendEvidence.cs", ("CadBackendQualificationEvidence", "SourceSha", "QualifiedCapabilities", "Passed"))
-require(HOST / "CadQualifiedBackendSelector.cs", ("SelectProduction", "CadBackendKind.Native", "QualifiedCapabilities"))
+require(HOST / "CadBackendPolicy.cs", ("CadBackendKind.Native", "RequireNative", "Production", "Version"))
+require(HOST / "CadBackendEvidence.cs", ("CadBackendQualificationEvidence", "BackendVersion", "SourceSha", "QualifiedCapabilities", "Passed"))
+require(HOST / "CadQualifiedBackendSelector.cs", ("SelectProduction", "CadBackendKind.Native", "BackendVersion", "SourceSha", "QualifiedCapabilities"))
+require(HOST / "CadBackendQualificationEvidenceJson.cs", ("Serialize", "Deserialize", "BackendVersion", "SourceSha"))
 require(HOST / "QuantityScheduleCsvCompat.cs", ("QS3D.Platform.Quantity.QuantityScheduleCsv",))
 for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotReferenceCommands.cs"):
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
-    "CadBackendQualificationModuleSmoke.cs", "Qs3dBootstrapPackageModuleSmoke.cs",
-    "SemanticAuthoringQuantityModuleSmoke.cs",
+    "CadBackendQualificationModuleSmoke.cs", "CadBackendQualificationEvidenceJsonModuleSmoke.cs",
+    "Qs3dBootstrapPackageModuleSmoke.cs", "SemanticAuthoringQuantityModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
