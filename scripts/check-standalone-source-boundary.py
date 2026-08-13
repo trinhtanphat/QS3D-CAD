@@ -43,7 +43,7 @@ for regression in (
     "CadBackendQualificationModuleSmoke.cs", "CadBackendQualificationEvidenceJsonModuleSmoke.cs",
     "Qs3dBootstrapPackageModuleSmoke.cs", "SemanticAuthoringQuantityModuleSmoke.cs",
     "StandaloneParityModuleSmoke.cs", "StandaloneFamilySchemaModuleSmoke.cs",
-    "CommandRegistrationModuleSmoke.cs",
+    "CommandRegistrationModuleSmoke.cs", "DocumentLifecycleCleanupModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
