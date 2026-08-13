@@ -16,9 +16,10 @@ def require(path: pathlib.Path, tokens: tuple[str, ...]) -> None:
 
 require(HOST / "StandaloneCadApplication.cs", (
     "BuiltInCommands.RegisterAll", "LayerCommands.RegisterAll", "BlockCommands.RegisterAll",
-    "SemanticCommands.RegisterAll", "SemanticAuthoringCommands.RegisterAll", "AdvancedReferenceCommands.RegisterAll",
+    "SemanticCommands.RegisterAll", "AdvancedReferenceCommands.RegisterAll",
     "XrefReferenceCommands.RegisterAll", "LayoutReferenceCommands.RegisterAll", "PlotReferenceCommands.RegisterAll",
 ))
+require(HOST / "SemanticCommands.cs", ("SemanticAuthoringCommands.RegisterAll",))
 require(HOST / "Qs3dBootstrapPackageStore.cs", (
     "manifest.json", "semantic-project.json", "drawing-bootstrap.json", "MaxPackageBytes", "MaxPayloadBytes",
     "SHA256.HashData", "CryptographicOperations.FixedTimeEquals", "duplicate entry", "missing or unexpected entries",
@@ -33,13 +34,14 @@ require(HOST / "CadBackendQualificationEvidenceJson.cs", ("Serialize", "Deserial
 require(HOST / "QuantityScheduleCsvCompat.cs", ("QS3D.Platform.Quantity.QuantityScheduleCsv",))
 for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotReferenceCommands.cs"):
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
-require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity",))
+require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
     "CadBackendQualificationModuleSmoke.cs", "CadBackendQualificationEvidenceJsonModuleSmoke.cs",
     "Qs3dBootstrapPackageModuleSmoke.cs", "SemanticAuthoringQuantityModuleSmoke.cs",
-    "StandaloneParityModuleSmoke.cs",
+    "StandaloneParityModuleSmoke.cs", "StandaloneFamilySchemaModuleSmoke.cs",
+    "CommandRegistrationModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
