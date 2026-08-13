@@ -63,7 +63,7 @@ public sealed class BootstrapDrawingStore
         Kind = entity.Kind.ToString(),
         Min = new[] { entity.Extents.Min.X, entity.Extents.Min.Y, entity.Extents.Min.Z },
         Max = new[] { entity.Extents.Max.X, entity.Extents.Max.Y, entity.Extents.Max.Z },
-        Properties = new Dictionary<string, string>(entity.Properties, StringComparer.Ordinal)
+        Properties = CloneProperties(entity.Properties)
     };
 
     private static CadEntitySnapshot FromDto(EntityDto dto)
@@ -76,12 +76,20 @@ public sealed class BootstrapDrawingStore
         try
         {
             var extents = new BoundingBox3(new Point3(dto.Min[0], dto.Min[1], dto.Min[2]), new Point3(dto.Max[0], dto.Max[1], dto.Max[2]));
-            return new CadEntitySnapshot(new CadHandle(dto.Handle), kind, extents, dto.Properties is null ? new Dictionary<string, string>() : new Dictionary<string, string>(dto.Properties, StringComparer.Ordinal));
+            return new CadEntitySnapshot(new CadHandle(dto.Handle), kind, extents, dto.Properties is null ? new Dictionary<string, string>() : CloneProperties(dto.Properties));
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or OverflowException)
         {
             throw new InvalidDataException($"Entity {dto.Handle} is invalid.", ex);
         }
+    }
+
+    private static Dictionary<string, string> CloneProperties(IReadOnlyDictionary<string, string> source)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var pair in source)
+            result.Add(pair.Key, pair.Value);
+        return result;
     }
 
     private sealed class DrawingDto
