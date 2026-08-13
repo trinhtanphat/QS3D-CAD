@@ -20,6 +20,7 @@ public sealed class StandaloneCadApplication
         LayerCommands.RegisterAll(Commands);
         BlockCommands.RegisterAll(Commands);
         SemanticCommands.RegisterAll(Commands, Projects);
+        AdvancedReferenceCommands.RegisterAll(Commands);
     }
 
     public InMemoryDocumentManager Documents { get; }
