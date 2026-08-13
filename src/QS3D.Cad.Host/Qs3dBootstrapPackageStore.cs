@@ -107,8 +107,16 @@ public sealed class Qs3dBootstrapPackageStore
             drawingBytes = ReadEntry(archive, DrawingEntry, MaxPayloadBytes);
         }
 
-        var manifest = JsonSerializer.Deserialize<ManifestDto>(manifestBytes, JsonOptions)
-            ?? throw new InvalidDataException("QS3D package manifest is empty or invalid.");
+        ManifestDto manifest;
+        try
+        {
+            manifest = JsonSerializer.Deserialize<ManifestDto>(manifestBytes, JsonOptions)
+                ?? throw new InvalidDataException("QS3D package manifest is empty or invalid.");
+        }
+        catch (Exception ex) when (ex is JsonException or ArgumentException or FormatException)
+        {
+            throw new InvalidDataException("QS3D package manifest is invalid.", ex);
+        }
         manifest.Validate();
         if (manifest.FormatVersion != CurrentFormatVersion) throw new InvalidDataException($"Unsupported QS3D package format {manifest.FormatVersion}.");
         ValidatePayload(manifest, SemanticEntry, semanticBytes);
