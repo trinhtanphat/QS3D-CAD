@@ -49,6 +49,15 @@ public sealed class StandaloneCadApplication
         return loaded.Document;
     }
 
+    public bool CloseDocument(DrawingId drawingId)
+    {
+        if (!Documents.Close(drawingId)) return false;
+        Projects.Detach(drawingId);
+        _undo.Remove(drawingId);
+        _redo.Remove(drawingId);
+        return true;
+    }
+
     public void SaveBootstrap(string path)
     {
         var document = Documents.ActiveDocument as InMemoryCadDocument
