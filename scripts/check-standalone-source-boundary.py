@@ -23,7 +23,7 @@ require(HOST / "Qs3dBootstrapPackageStore.cs", (
     "manifest.json", "semantic-project.json", "drawing-bootstrap.json", "MaxPackageBytes", "MaxPayloadBytes",
     "SHA256.HashData", "CryptographicOperations.FixedTimeEquals", "duplicate entry", "missing or unexpected entries",
 ))
-require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "IsValid", "PublishBackup", "File.Move"))
+require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "CanLoad", "PublishBackup", "File.Move"))
 require(HOST / "Qs3dBootstrapRecoveryReader.cs", ("RecoveredFromBackup", "PrimaryError", "BackupPath"))
 require(HOST / "StandaloneCadPackageExtensions.cs", ("SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery"))
 require(HOST / "CadBackendPolicy.cs", ("CadBackendKind.Native", "RequireNative", "Production", "Version"))
@@ -33,11 +33,13 @@ require(HOST / "CadBackendQualificationEvidenceJson.cs", ("Serialize", "Deserial
 require(HOST / "QuantityScheduleCsvCompat.cs", ("QS3D.Platform.Quantity.QuantityScheduleCsv",))
 for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotReferenceCommands.cs"):
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
+require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity",))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
     "CadBackendQualificationModuleSmoke.cs", "CadBackendQualificationEvidenceJsonModuleSmoke.cs",
     "Qs3dBootstrapPackageModuleSmoke.cs", "SemanticAuthoringQuantityModuleSmoke.cs",
+    "StandaloneParityModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
