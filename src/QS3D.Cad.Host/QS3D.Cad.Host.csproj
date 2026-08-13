@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\QS3D-Platform\src\QS3D.Platform.Application\QS3D.Platform.Application.csproj" />
+    <ProjectReference Include="..\..\external\QS3D-Platform\src\QS3D.Platform.Cad.Abstractions\QS3D.Platform.Cad.Abstractions.csproj" />
+    <ProjectReference Include="..\..\external\QS3D-Platform\src\QS3D.Platform.Domain\QS3D.Platform.Domain.csproj" />
+    <ProjectReference Include="..\..\external\QS3D-Platform\src\QS3D.Platform.Geometry\QS3D.Platform.Geometry.csproj" />
+    <ProjectReference Include="..\..\external\QS3D-Platform\src\QS3D.Platform.InMemory\QS3D.Platform.InMemory.csproj" />
+  </ItemGroup>
+</Project>
