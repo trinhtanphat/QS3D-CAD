@@ -18,7 +18,9 @@ require(HOST / "StandaloneCadApplication.cs", (
     "BuiltInCommands.RegisterAll", "LayerCommands.RegisterAll", "BlockCommands.RegisterAll",
     "SemanticCommands.RegisterAll", "AdvancedReferenceCommands.RegisterAll",
     "XrefReferenceCommands.RegisterAll", "LayoutReferenceCommands.RegisterAll", "PlotReferenceCommands.RegisterAll",
+    "CloseDocument", "Projects.Detach", "_undo.Remove", "_redo.Remove",
 ))
+require(HOST / "StandaloneSemanticWorkspace.cs", ("Detach(DrawingId", "_states.Remove"))
 require(HOST / "SemanticCommands.cs", ("SemanticAuthoringCommands.RegisterAll",))
 require(HOST / "Qs3dBootstrapPackageStore.cs", (
     "manifest.json", "semantic-project.json", "drawing-bootstrap.json", "MaxPackageBytes", "MaxPayloadBytes",
