@@ -20,7 +20,7 @@ public sealed class BootstrapLoadResult
 
 public sealed class BootstrapDrawingStore
 {
-    public const int CurrentSchema = 2;
+    public const int CurrentSchema = 4;
     public const int MinimumReadableSchema = 1;
     public const long MaxBytes = 32L * 1024L * 1024L;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, MaxDepth = 64 };
@@ -37,18 +37,22 @@ public sealed class BootstrapDrawingStore
             Schema = CurrentSchema,
             DrawingId = document.Id.Value,
             Name = document.Name,
-            Entities = tx.Query().Select(ToDto).ToList(),
-            SemanticProject = project is null ? null : ToDto(project)
+            Entities = tx.Query().Select(ToEntityDto).ToList(),
+            Layers = tx.GetLayers().Select(ToLayerDto).ToList(),
+            CurrentLayerName = tx.CurrentLayerName,
+            Blocks = tx.GetBlocks().Select(ToBlockDto).ToList(),
+            SemanticProject = project is null ? null : ToSemanticProjectDto(project)
         };
-        var json = JsonSerializer.Serialize(dto, JsonOptions);
+
         var fullPath = Path.GetFullPath(path);
         var directory = Path.GetDirectoryName(fullPath) ?? throw new InvalidOperationException("Drawing path has no parent directory.");
         Directory.CreateDirectory(directory);
         var temporary = fullPath + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
-            File.WriteAllText(temporary, json);
-            if (new FileInfo(temporary).Length > MaxBytes) throw new InvalidOperationException("Bootstrap drawing exceeds the configured size limit.");
+            File.WriteAllText(temporary, JsonSerializer.Serialize(dto, JsonOptions));
+            if (new FileInfo(temporary).Length > MaxBytes)
+                throw new InvalidOperationException("Bootstrap drawing exceeds the configured size limit.");
             File.Move(temporary, fullPath, true);
         }
         finally
@@ -72,32 +76,43 @@ public sealed class BootstrapDrawingStore
         if (dto.DrawingId == Guid.Empty) throw new InvalidDataException("Drawing ID is missing.");
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new InvalidDataException("Drawing name is missing.");
         if (dto.Entities is null) throw new InvalidDataException("Entity collection is missing.");
-        var entities = dto.Entities.Select(FromDto).ToArray();
-        var document = new InMemoryCadDocument(new DrawingId(dto.DrawingId), dto.Name, new InMemoryCadDatabase(entities));
-        var project = dto.Schema >= 2 && dto.SemanticProject is not null ? FromDto(dto.SemanticProject) : null;
+        if (dto.Schema >= 3 && (dto.Layers is null || string.IsNullOrWhiteSpace(dto.CurrentLayerName)))
+            throw new InvalidDataException("Layer state is missing from bootstrap drawing.");
+        if (dto.Schema >= 4 && dto.Blocks is null)
+            throw new InvalidDataException("Block definition collection is missing from bootstrap drawing.");
+
+        var entities = dto.Entities.Select(FromEntityDto).ToArray();
+        var layers = dto.Schema >= 3 ? dto.Layers!.Select(FromLayerDto).ToArray() : null;
+        var blocks = dto.Schema >= 4 ? dto.Blocks!.Select(FromBlockDto).ToArray() : null;
+        var currentLayer = dto.Schema >= 3 ? dto.CurrentLayerName : null;
+        var database = new InMemoryCadDatabase(entities, layers, currentLayer, blocks);
+        var document = new InMemoryCadDocument(new DrawingId(dto.DrawingId), dto.Name, database);
+        var project = dto.Schema >= 2 && dto.SemanticProject is not null ? FromSemanticProjectDto(dto.SemanticProject) : null;
         return new BootstrapLoadResult(document, project);
     }
 
-    private static EntityDto ToDto(CadEntitySnapshot entity) => new()
+    private static EntityDto ToEntityDto(CadEntitySnapshot entity) => new()
     {
         Handle = entity.Handle.Value,
         Kind = entity.Kind.ToString(),
-        Min = new[] { entity.Extents.Min.X, entity.Extents.Min.Y, entity.Extents.Min.Z },
-        Max = new[] { entity.Extents.Max.X, entity.Extents.Max.Y, entity.Extents.Max.Z },
-        Properties = CloneProperties(entity.Properties)
+        Min = PointToArray(entity.Extents.Min),
+        Max = PointToArray(entity.Extents.Max),
+        Properties = CloneProperties(entity.Properties),
+        LayerName = entity.LayerName
     };
 
-    private static CadEntitySnapshot FromDto(EntityDto dto)
+    private static CadEntitySnapshot FromEntityDto(EntityDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Handle)) throw new InvalidDataException("Entity handle is missing.");
-        if (!Enum.TryParse<CadEntityKind>(dto.Kind, false, out var kind) || kind == CadEntityKind.Unknown)
-            throw new InvalidDataException($"Unsupported entity kind '{dto.Kind}'.");
-        if (dto.Min is not { Length: 3 } || dto.Max is not { Length: 3 })
-            throw new InvalidDataException($"Entity {dto.Handle} has invalid bounds.");
+        if (!TryKind(dto.Kind, out var kind)) throw new InvalidDataException($"Unsupported entity kind '{dto.Kind}'.");
         try
         {
-            var extents = new BoundingBox3(new Point3(dto.Min[0], dto.Min[1], dto.Min[2]), new Point3(dto.Max[0], dto.Max[1], dto.Max[2]));
-            return new CadEntitySnapshot(new CadHandle(dto.Handle), kind, extents, dto.Properties is null ? new Dictionary<string, string>() : CloneProperties(dto.Properties));
+            return new CadEntitySnapshot(
+                new CadHandle(dto.Handle),
+                kind,
+                Bounds(dto.Min, dto.Max, $"Entity {dto.Handle}"),
+                dto.Properties is null ? new Dictionary<string, string>() : CloneProperties(dto.Properties),
+                string.IsNullOrWhiteSpace(dto.LayerName) ? "0" : dto.LayerName);
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or OverflowException)
         {
@@ -105,17 +120,86 @@ public sealed class BootstrapDrawingStore
         }
     }
 
-    private static SemanticProjectDto ToDto(SemanticProject project) => new()
+    private static LayerDto ToLayerDto(CadLayerSnapshot layer) => new()
+    {
+        Name = layer.Name,
+        IsOn = layer.IsOn,
+        IsFrozen = layer.IsFrozen,
+        IsLocked = layer.IsLocked
+    };
+
+    private static CadLayerSnapshot FromLayerDto(LayerDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name)) throw new InvalidDataException("Layer name is missing.");
+        return new CadLayerSnapshot(dto.Name, dto.IsOn, dto.IsFrozen, dto.IsLocked);
+    }
+
+    private static BlockDto ToBlockDto(CadBlockDefinitionSnapshot block) => new()
+    {
+        Name = block.Name,
+        BasePoint = PointToArray(block.BasePoint),
+        Entities = block.Entities.Select(ToDraftDto).ToList()
+    };
+
+    private static CadBlockDefinitionSnapshot FromBlockDto(BlockDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name)) throw new InvalidDataException("Block name is missing.");
+        if (dto.BasePoint is not { Length: 3 }) throw new InvalidDataException($"Block '{dto.Name}' has an invalid base point.");
+        if (dto.Entities is null || dto.Entities.Count == 0) throw new InvalidDataException($"Block '{dto.Name}' has no entities.");
+        try
+        {
+            return new CadBlockDefinitionSnapshot(
+                dto.Name,
+                new Point3(dto.BasePoint[0], dto.BasePoint[1], dto.BasePoint[2]),
+                dto.Entities.Select(FromDraftDto).ToArray());
+        }
+        catch (Exception ex) when (ex is ArgumentException or FormatException or OverflowException)
+        {
+            throw new InvalidDataException($"Block '{dto.Name}' is invalid.", ex);
+        }
+    }
+
+    private static EntityDraftDto ToDraftDto(CadEntityDraft entity) => new()
+    {
+        Kind = entity.Kind.ToString(),
+        Min = PointToArray(entity.Extents.Min),
+        Max = PointToArray(entity.Extents.Max),
+        Properties = entity.Properties is null ? null : CloneProperties(entity.Properties),
+        LayerName = entity.LayerName
+    };
+
+    private static CadEntityDraft FromDraftDto(EntityDraftDto dto)
+    {
+        if (!TryKind(dto.Kind, out var kind)) throw new InvalidDataException($"Unsupported block entity kind '{dto.Kind}'.");
+        return new CadEntityDraft(
+            kind,
+            Bounds(dto.Min, dto.Max, "Block entity"),
+            dto.Properties is null ? null : CloneProperties(dto.Properties),
+            string.IsNullOrWhiteSpace(dto.LayerName) ? "0" : dto.LayerName);
+    }
+
+    private static bool TryKind(string? raw, out CadEntityKind kind)
+        => Enum.TryParse(raw, false, out kind) && kind != CadEntityKind.Unknown;
+
+    private static BoundingBox3 Bounds(double[]? min, double[]? max, string label)
+    {
+        if (min is not { Length: 3 } || max is not { Length: 3 }) throw new InvalidDataException($"{label} has invalid bounds.");
+        return new BoundingBox3(new Point3(min[0], min[1], min[2]), new Point3(max[0], max[1], max[2]));
+    }
+
+    private static double[] PointToArray(Point3 point) => new[] { point.X, point.Y, point.Z };
+
+    private static SemanticProjectDto ToSemanticProjectDto(SemanticProject project) => new()
     {
         ProjectId = project.Id.Value,
         Name = project.Name,
         Floors = project.Floors.Select(static floor => new FloorDto { Id = floor.Id.Value, Name = floor.Name, ElevationM = floor.ElevationM }).ToList(),
         Zones = project.Zones.Select(static zone => new ZoneDto { Id = zone.Id.Value, Name = zone.Name }).ToList(),
         Families = project.Families.Select(static family => new FamilyDto { Id = family.Id.Value, Kind = family.Kind.ToString(), Name = family.Name }).ToList(),
-        Elements = project.Elements.Select(ToDto).ToList()
+        Elements = project.Elements.Select(ToSemanticElementDto).ToList()
     };
 
-    private static SemanticElementDto ToDto(SemanticElement element) => new()
+    private static SemanticElementDto ToSemanticElementDto(SemanticElement element) => new()
     {
         Id = element.Id.Value,
         Kind = element.Kind.ToString(),
@@ -123,22 +207,25 @@ public sealed class BootstrapDrawingStore
         FamilyId = element.FamilyId.Value,
         FloorId = element.FloorId?.Value,
         ZoneId = element.ZoneId?.Value,
-        SourceReference = element.SourceReference.HasValue ? ToDto(element.SourceReference.Value) : null,
-        GeneratedReferences = element.GeneratedReferences.Select(ToDto).ToList(),
+        SourceReference = element.SourceReference.HasValue ? ToReferenceDto(element.SourceReference.Value) : null,
+        GeneratedReferences = element.GeneratedReferences.Select(ToReferenceDto).ToList(),
         Properties = CloneProperties(element.Properties)
     };
 
-    private static CadReferenceDto ToDto(CadReference reference) => new() { DrawingId = reference.DrawingId.Value, Handle = reference.Handle.Value };
-
-    private static SemanticProject FromDto(SemanticProjectDto dto)
+    private static CadReferenceDto ToReferenceDto(CadReference reference) => new()
     {
+        DrawingId = reference.DrawingId.Value,
+        Handle = reference.Handle.Value
+    };
+
+    private static SemanticProject FromSemanticProjectDto(SemanticProjectDto dto)
+    {
+        if (dto.ProjectId == Guid.Empty) throw new InvalidDataException("Semantic project ID is missing.");
+        if (string.IsNullOrWhiteSpace(dto.Name)) throw new InvalidDataException("Semantic project name is missing.");
+        if (dto.Floors is null || dto.Zones is null || dto.Families is null || dto.Elements is null)
+            throw new InvalidDataException("Semantic project collections are incomplete.");
         try
         {
-            if (dto.ProjectId == Guid.Empty) throw new InvalidDataException("Semantic project ID is missing.");
-            if (string.IsNullOrWhiteSpace(dto.Name)) throw new InvalidDataException("Semantic project name is missing.");
-            if (dto.Floors is null || dto.Zones is null || dto.Families is null || dto.Elements is null)
-                throw new InvalidDataException("Semantic project collections are incomplete.");
-
             var project = new SemanticProject(new ProjectId(dto.ProjectId), dto.Name);
             foreach (var floor in dto.Floors)
             {
@@ -156,18 +243,16 @@ public sealed class BootstrapDrawingStore
                     throw new InvalidDataException("Semantic family is invalid.");
                 project.AddFamily(new Family(new FamilyId(family.Id), kind, family.Name));
             }
-            foreach (var elementDto in dto.Elements)
-                project.AddElement(FromDto(elementDto));
+            foreach (var element in dto.Elements) project.AddElement(FromSemanticElementDto(element));
             return project;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException or OverflowException)
         {
-            if (ex is InvalidDataException) throw;
             throw new InvalidDataException("Semantic project is invalid.", ex);
         }
     }
 
-    private static SemanticElement FromDto(SemanticElementDto dto)
+    private static SemanticElement FromSemanticElementDto(SemanticElementDto dto)
     {
         if (dto.Id == Guid.Empty || dto.FamilyId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Name))
             throw new InvalidDataException("Semantic element identity is invalid.");
@@ -175,10 +260,10 @@ public sealed class BootstrapDrawingStore
             throw new InvalidDataException($"Unsupported semantic element kind '{dto.Kind}'.");
         var element = new SemanticElement(new ElementId(dto.Id), kind, dto.Name, new FamilyId(dto.FamilyId));
         element.AssignLocation(dto.FloorId.HasValue ? new FloorId(dto.FloorId.Value) : null, dto.ZoneId.HasValue ? new ZoneId(dto.ZoneId.Value) : null);
-        if (dto.SourceReference is not null) element.SetSource(FromDto(dto.SourceReference));
+        if (dto.SourceReference is not null) element.SetSource(FromReferenceDto(dto.SourceReference));
         if (dto.GeneratedReferences is not null)
         {
-            foreach (var generated in dto.GeneratedReferences) element.AddGeneratedReference(FromDto(generated));
+            foreach (var reference in dto.GeneratedReferences) element.AddGeneratedReference(FromReferenceDto(reference));
         }
         if (dto.Properties is not null)
         {
@@ -187,10 +272,9 @@ public sealed class BootstrapDrawingStore
         return element;
     }
 
-    private static CadReference FromDto(CadReferenceDto dto)
+    private static CadReference FromReferenceDto(CadReferenceDto dto)
     {
-        if (dto.DrawingId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Handle))
-            throw new InvalidDataException("CAD reference is invalid.");
+        if (dto.DrawingId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Handle)) throw new InvalidDataException("CAD reference is invalid.");
         return new CadReference(new DrawingId(dto.DrawingId), new CadHandle(dto.Handle));
     }
 
@@ -207,6 +291,9 @@ public sealed class BootstrapDrawingStore
         public Guid DrawingId { get; set; }
         public string? Name { get; set; }
         public List<EntityDto>? Entities { get; set; }
+        public List<LayerDto>? Layers { get; set; }
+        public string? CurrentLayerName { get; set; }
+        public List<BlockDto>? Blocks { get; set; }
         public SemanticProjectDto? SemanticProject { get; set; }
     }
 
@@ -217,6 +304,31 @@ public sealed class BootstrapDrawingStore
         public double[]? Min { get; set; }
         public double[]? Max { get; set; }
         public Dictionary<string, string>? Properties { get; set; }
+        public string? LayerName { get; set; }
+    }
+
+    private sealed class LayerDto
+    {
+        public string? Name { get; set; }
+        public bool IsOn { get; set; } = true;
+        public bool IsFrozen { get; set; }
+        public bool IsLocked { get; set; }
+    }
+
+    private sealed class BlockDto
+    {
+        public string? Name { get; set; }
+        public double[]? BasePoint { get; set; }
+        public List<EntityDraftDto>? Entities { get; set; }
+    }
+
+    private sealed class EntityDraftDto
+    {
+        public string? Kind { get; set; }
+        public double[]? Min { get; set; }
+        public double[]? Max { get; set; }
+        public Dictionary<string, string>? Properties { get; set; }
+        public string? LayerName { get; set; }
     }
 
     private sealed class SemanticProjectDto

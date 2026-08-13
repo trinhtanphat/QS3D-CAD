@@ -17,6 +17,8 @@ public sealed class StandaloneCadApplication
         Commands = new CommandRegistry();
         Store = new BootstrapDrawingStore();
         BuiltInCommands.RegisterAll(Commands);
+        LayerCommands.RegisterAll(Commands);
+        BlockCommands.RegisterAll(Commands);
         SemanticCommands.RegisterAll(Commands, Projects);
     }
 
