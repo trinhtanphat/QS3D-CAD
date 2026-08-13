@@ -1,4 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup>
-  <ItemGroup><ProjectReference Include="..\..\src\QS3D.Cad.Host\QS3D.Cad.Host.csproj" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\QS3D.Cad.Host\QS3D.Cad.Host.csproj" />
+    <ProjectReference Include="..\..\external\QS3D-Platform\src\QS3D.Platform.Parity\QS3D.Platform.Parity.csproj" />
+  </ItemGroup>
 </Project>
