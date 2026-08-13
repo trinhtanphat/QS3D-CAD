@@ -78,7 +78,7 @@ public static class SemanticCommands
 
         public CommandResult Execute(CommandContext context)
         {
-            var report = SemanticHealthAnalyzer.Analyze(_workspace.Ensure(context.Document));
+            var report = ModelReadinessAnalyzer.Analyze(_workspace.Ensure(context.Document));
             foreach (var finding in report.Findings)
                 context.Document.Editor.WriteMessage($"{finding.Severity} {finding.Code}: {finding.Message}");
             return report.IsReady
