@@ -1,5 +1,0 @@
-<Project>
-  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)external/QS3D-Platform/src/QS3D.Platform.InMemory/InMemoryAdvancedServices.cs')">
-    <Compile Remove="PlatformAdvancedServicesCompat.cs" />
-  </ItemGroup>
-</Project>
