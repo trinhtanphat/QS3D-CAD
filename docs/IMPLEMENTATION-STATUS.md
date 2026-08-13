@@ -2,83 +2,77 @@
 
 **Date:** 2026-08-13 (UTC+7)  
 **Product:** standalone Windows CAD/BIM/QS  
-**No BricsCAD runtime is required by this repository's product architecture.**
+**Evidence state:** `SOURCE_READY / PENDING_BUILD_AND_NATIVE_EVIDENCE`
 
-## Implemented standalone foundation
+`QS3D-CAD` is a standalone product and does not require BricsCAD at runtime. `QS3D-Platform` remains the host-neutral shared layer; `QS3D-BricsCAD` remains the hosted compatibility product.
 
-- Separate `QS3D-CAD` repository/product boundary.
-- Exact `QS3D-Platform` Git submodule pin for shared contracts.
-- Headless standalone application host and command registry.
-- Windows .NET 8/WPF desktop shell scaffold.
-- In-memory deterministic database adapter for architecture/tests only.
-- Stable CAD handles and document identity.
-- Transaction commit/rollback and optimistic stale-transaction guard.
-- Application-level undo/redo journal coordinating CAD and semantic changes.
-- Fail-closed stale undo/redo when a changed domain mutates outside the command journal.
-- Basic bootstrap commands: `LINE`, `CIRCLE`, `RECTANG`, `MOVE`, `SELECT`, `ERASE`, `LIST`.
-- Transactional layer operations and current-layer/entity ownership.
-- Semantic workspace per drawing.
-- `QSTAG`, `QSLIST`, `QSHEALTH`, `QSCOUNT` using shared Platform domain/diagnostics/quantity logic.
-- Bootstrap persistence with backward-readable schema lineage; current established baseline includes CAD entities, semantic project state and layer/current-layer state.
-- Native SDK configuration/readiness probe that can report only `NotConfigured`, `DirectoryMissing` or `ConfiguredUnqualified` before real capability evidence exists.
-- Native SDK legal/runtime integration checklist.
-- Standalone boundary preflight and Windows end-to-end validation script.
+## Implemented standalone/reference foundation
 
-## Static block work
+- Exact `QS3D-Platform` Git submodule pin and explicit pin-validation script.
+- Headless application host, command registry, CLI/WPF shell scaffold and in-memory deterministic CAD adapter.
+- Stable drawing IDs/CAD handles, transactions, stale-transaction guard and coordinated CAD+semantic undo/redo journal.
+- Drawing commands including `LINE`, `CIRCLE`, `RECTANG`, `MOVE`, `SELECT`, `ERASE`, `LIST`.
+- Transactional layers/current-layer ownership and static block definition/insert/delete/list workflows.
+- Semantic workspace plus `QSTAG`, `QSLIST`, `QSHEALTH`, `QSCOUNT`, `QSFLOOR`, `QSZONE`, `QSPROP`, `QSLOC`.
+- Shared unit-aware quantity/schedule pipeline through `QSQTY` and `QSSCHEDULE`; CSV output routes through Platform.
+- Deterministic reference viewport/hit-test/snap/polygon-selection services exposed as `VIEW`, `ZOOMEXTENTS`, `ZOOMWINDOW`, `HITTEST`, `SNAP`, `SELPOLY`.
+- Reference-only Xref/Layout/Plot lifecycle exposed as `XREFREF`, `LAYOUTREF`, `PLOTREF`. `PLOTREF` records a request and explicitly produces no native file.
+- Document-scoped Platform reference services use a weak registry so unreferenced documents are not retained solely by reference-service state.
 
-`QS3D-Platform` contains deterministic static block definition/reference contracts and conformance tests. Standalone integration is treated separately from real DWG block fidelity: production support still requires native round-trip qualification for nested, attributed, dynamic, anonymous and proxy/custom block behavior.
+## Persistence now implemented at bootstrap/reference level
 
-No bootstrap block implementation may be used as evidence of DWG dynamic-block compatibility.
+Bootstrap drawing persistence is backward-readable and includes CAD entities, semantic project state, layers/current layer and block definitions.
 
-## Current desktop limitation
+A `.qs3d` bootstrap package layer now exists with:
 
-The WPF shell is an application shell, **not yet a production CAD viewport**. The bootstrap UI visualizes drawing/database state without claiming native GPU rendering.
+- exact ZIP entry set and schema/manifest contract;
+- bounded package/manifest/payload reads;
+- SHA-256 and declared-length validation;
+- semantic/drawing identity consistency checks;
+- canonical semantic snapshot hash validation;
+- same-directory temporary publication before primary replacement;
+- validated previous-generation `.qs3d.bak` publication;
+- explicit recovery reader returning `RecoveredFromBackup=true`, backup source path and primary failure diagnostics;
+- fail-closed behavior when primary and backup cannot be validated.
 
-Production viewport work is blocked behind the licensed native adapter and must prove:
+This is real bootstrap container I/O, but the drawing payload is still QS3D bootstrap data. It is **not DWG interoperability evidence** and not yet the final native drawing payload strategy.
 
-- real model-space rendering;
-- pan/zoom;
-- hit testing;
-- selection/highlight;
-- incremental invalidation;
-- DPI handling;
-- large-drawing behavior.
+## Production backend qualification policy
 
-## Current persistence limitation
+Production backend selection is fail-closed:
 
-`*.qs3d-bootstrap.json` is a deterministic architecture/test fixture. It is not the final `.qs3d` product container and is not DWG interoperability evidence.
+- backend must be available and `Native`;
+- required capabilities must be present;
+- exact 40-character QS3D-CAD source SHA must match qualification evidence;
+- exact native backend version must match evidence;
+- evidence must be passing and cover all required capabilities.
 
-The production `.qs3d` design still needs a deliberate container/manifest/integrity/atomic-save/migration contract after the native drawing payload/reference strategy is fixed.
+Unversioned native descriptors cannot satisfy qualified production selection. Qualification evidence also has a deterministic JSON codec for local/CI interchange; that JSON is not a signature or trust root.
 
-## Native SDK blocker
+## Validation/source gates
 
-The repository intentionally does not ship or impersonate ODA/other proprietary SDK binaries. A configured SDK directory is still `ConfiguredUnqualified` until the adapter is bound and executable evidence exists.
+`scripts/validate.ps1` runs standalone preflight/source-boundary checks, initializes the pinned Platform submodule, verifies the exact checkout, runs Platform preflight/netstandard boundary checks, then builds/runs Platform and standalone deterministic smoke when a .NET SDK is available.
 
-See `docs/NATIVE-SDK-INTEGRATION-CHECKLIST.md` for the exact native milestones.
+Source gates require command registrations, package integrity/recovery surfaces, backend qualification contracts and deterministic regression modules.
 
-## Not yet production-qualified
+## Native/local-only work still required
 
-- native DWG/DXF open/save;
-- no-op and edited DWG round-trip fidelity;
-- native GPU viewport;
-- real OSNAP/grips based on entity geometry;
-- TRIM/EXTEND/OFFSET/FILLET/CHAMFER/JOIN/BREAK against a real geometry engine;
-- Xrefs;
-- paper-space layouts/plot/PDF;
-- native 3D primitives/extrude/revolve/sweep/loft;
-- B-Rep boolean operations;
-- DWG dynamic/proxy object preservation;
-- production `.qs3d` container;
-- plugin SDK runtime loading;
-- installer/signing/clean-machine release evidence;
+The following are not production-qualified and must remain in the local/native qualification lane described by `docs/LOCAL-NATIVE-QUALIFICATION.md`:
+
+- native DWG/DXF open/save/save-as and no-op/edited round-trip fidelity;
+- real GPU viewport/device lifecycle, pan/zoom/orbit, DPI and large-drawing behavior;
+- native hit testing and true intersection/tangent/perpendicular OSNAP;
+- native Xrefs and reference resolution;
+- paper-space layouts/page setup and real PDF/printing output;
+- TRIM/EXTEND/OFFSET/FILLET/CHAMFER/JOIN/BREAK against a production geometry kernel;
+- native 3D primitives/extrude/revolve/sweep/loft and B-Rep booleans;
+- text/fonts/hatches/dimensions/tables/images and dynamic/proxy object fidelity;
+- final `.qs3d` native drawing payload/reference integration;
+- plugin runtime loading, installer/signing/clean-machine evidence and crash recovery against the native backend;
 - large-project production performance.
 
 ## Validation status
 
-Deterministic smoke/preflight sources are present. GitHub Actions capacity for the account was observed blocked before runner allocation, so a red run caused by exhausted included Actions minutes is neither a code failure nor a PASS. Until runner capacity is available, exact build/runtime claims require local validation with `scripts/validate.ps1` or another real runner.
+No `BUILD_PASS`, `DWG_PASS`, `LOCAL_NATIVE_PASS` or `PRODUCTION_QUALIFIED` claim is made by this source checkpoint. The current conversation execution environment has no usable .NET SDK/compiler and prior GitHub Actions capacity was blocked before useful runner evidence. Exact runtime claims require `scripts/validate.ps1` on a real toolchain and, for native capabilities, exact-SHA/version local evidence.
 
-## Product completion rule
-
-The standalone product can be described as a BricsCAD replacement only for the capability subset that has passed native file-format/runtime qualification. Architecture scaffolding, in-memory commands or source completeness alone are insufficient.
-
-The first commercially meaningful native milestone is defined in `docs/NATIVE-SDK-INTEGRATION-CHECKLIST.md`: own-process DWG open, real viewport, basic entity/layer/block mapping, transactional native edit+undo, and declared round-trip fidelity without requiring BricsCAD on the customer machine.
+Reference/in-memory success must never be reported as native CAD success.
