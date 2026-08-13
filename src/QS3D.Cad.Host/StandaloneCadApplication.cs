@@ -22,6 +22,9 @@ public sealed class StandaloneCadApplication
         SemanticCommands.RegisterAll(Commands, Projects);
         SemanticAuthoringCommands.RegisterAll(Commands, Projects);
         AdvancedReferenceCommands.RegisterAll(Commands);
+        XrefReferenceCommands.RegisterAll(Commands);
+        LayoutReferenceCommands.RegisterAll(Commands);
+        PlotReferenceCommands.RegisterAll(Commands);
     }
 
     public InMemoryDocumentManager Documents { get; }
