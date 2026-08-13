@@ -6,11 +6,20 @@ Set-Location $Root
 Write-Host '== QS3D-CAD preflight =='
 python scripts/preflight.py
 
+Write-Host '== QS3D-CAD source boundary =='
+python scripts/check-standalone-source-boundary.py
+
 Write-Host '== Initialize pinned QS3D-Platform =='
 git submodule update --init --recursive
 
+Write-Host '== Verify exact Platform checkout =='
+python scripts/check-platform-pin.py
+
 Write-Host '== QS3D-Platform preflight =='
 python external/QS3D-Platform/scripts/preflight.py
+
+Write-Host '== QS3D-Platform netstandard2.0 boundary =='
+python external/QS3D-Platform/scripts/check-netstandard20-boundary.py
 
 Write-Host '== Build QS3D-Platform Release =='
 dotnet build external/QS3D-Platform/QS3D.Platform.sln -c Release
