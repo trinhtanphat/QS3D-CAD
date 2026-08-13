@@ -9,21 +9,30 @@ public sealed class StandaloneCadApplication
     public StandaloneCadApplication()
     {
         Documents = new InMemoryDocumentManager();
+        Projects = new StandaloneSemanticWorkspace();
         Commands = new CommandRegistry();
         Store = new BootstrapDrawingStore();
         BuiltInCommands.RegisterAll(Commands);
+        SemanticCommands.RegisterAll(Commands, Projects);
     }
 
     public InMemoryDocumentManager Documents { get; }
+    public StandaloneSemanticWorkspace Projects { get; }
     public CommandRegistry Commands { get; }
     public BootstrapDrawingStore Store { get; }
 
-    public ICadDocument NewDocument(string name) => Documents.CreateNew(name);
+    public ICadDocument NewDocument(string name)
+    {
+        var document = Documents.CreateNew(name);
+        Projects.Ensure(document);
+        return document;
+    }
 
     public ICadDocument OpenBootstrap(string path)
     {
         var document = Store.Load(path);
         Documents.Open(document);
+        Projects.Ensure(document);
         return document;
     }
 

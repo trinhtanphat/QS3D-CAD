@@ -41,8 +41,16 @@ Implemented bootstrap commands:
 - `LIST`
 - `UNDO`
 - `REDO`
+- `QSTAG handle kind [name]` — bind one CAD source entity to a semantic Wall/Beam/Slab/etc. element.
+- `QSLIST` — list semantic elements for the active drawing.
+- `QSHEALTH` — run shared Platform semantic-health diagnostics.
+- `QSCOUNT [kind]` — deterministic semantic element count through the shared Quantity engine.
 
 The desktop shell currently visualizes the database as an entity list until the production viewport adapter is connected.
+
+### Bootstrap persistence limitation
+
+Schema-v1 `*.qs3d-bootstrap.json` persists the in-memory CAD entity snapshot only. The semantic workspace commands above are intentionally in-memory at this stage; semantic persistence will move into the versioned `.qs3d`/project persistence layer rather than being silently mixed into the temporary drawing fixture format.
 
 ## Native SDK boundary
 

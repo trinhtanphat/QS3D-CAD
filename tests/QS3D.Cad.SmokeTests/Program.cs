@@ -7,6 +7,7 @@ var tests = new (string Name, Action Run)[]
     ("tokenizer", Tokenizer),
     ("drawing commands and history", DrawingCommandsAndHistory),
     ("failed erase rolls back", FailedEraseRollsBack),
+    ("semantic workspace commands", SemanticWorkspaceCommands),
     ("bootstrap save load round trip", BootstrapSaveLoadRoundTrip)
 };
 
@@ -60,6 +61,23 @@ static void FailedEraseRollsBack()
     var result = app.Execute("ERASE 1 FFFF");
     Require(!result.Succeeded, "erase should fail when any requested handle is absent");
     Equal(1, Count(document.Database));
+}
+
+static void SemanticWorkspaceCommands()
+{
+    var app = new StandaloneCadApplication();
+    var document = app.NewDocument("Semantic");
+    Success(app.Execute("LINE 0 0 4 0"));
+    Success(app.Execute("QSTAG 1 Wall \"Exterior Wall\""));
+    var project = app.Projects.Get(document);
+    Equal(1, project.Elements.Count);
+    var element = project.Elements.Single();
+    Equal(SemanticElementKind.Wall, element.Kind);
+    Equal("Exterior Wall", element.Name);
+    Require(element.SourceReference.HasValue && element.SourceReference.Value.Handle == new CadHandle("1"), "source handle must be retained");
+    Require(!app.Execute("QSTAG 1 Wall duplicate").Succeeded, "one source CAD entity must not be tagged twice");
+    Success(app.Execute("QSCOUNT Wall"));
+    Success(app.Execute("QSHEALTH"));
 }
 
 static void BootstrapSaveLoadRoundTrip()
