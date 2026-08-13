@@ -49,9 +49,61 @@ public sealed class StandaloneSemanticWorkspace
         var element = new SemanticElement(ElementId.New(), kind, normalizedName, family.Id);
         element.SetSource(source);
         state.Project.AddElement(element);
-        state.Undo.Push(new SemanticChange(before, CloneProject(state.Project)));
-        state.Redo.Clear();
-        state.Revision++;
+        CompleteMutation(state, before);
+        return element;
+    }
+
+    public Floor AddFloor(ICadDocument document, string name, double elevationM)
+    {
+        var state = EnsureState(document);
+        var before = CloneProject(state.Project);
+        var floor = new Floor(FloorId.New(), name, elevationM);
+        state.Project.AddFloor(floor);
+        CompleteMutation(state, before);
+        return floor;
+    }
+
+    public Zone AddZone(ICadDocument document, string name)
+    {
+        var state = EnsureState(document);
+        var before = CloneProject(state.Project);
+        var zone = new Zone(ZoneId.New(), name);
+        state.Project.AddZone(zone);
+        CompleteMutation(state, before);
+        return zone;
+    }
+
+    public SemanticElement GetElementBySource(ICadDocument document, CadHandle handle)
+    {
+        var state = EnsureState(document);
+        return RequireElementBySource(state.Project, document.Id, handle);
+    }
+
+    public SemanticElement SetProperty(ICadDocument document, CadHandle handle, string key, string value)
+    {
+        var state = EnsureState(document);
+        var element = RequireElementBySource(state.Project, document.Id, handle);
+        var normalizedKey = string.IsNullOrWhiteSpace(key) ? throw new ArgumentException("Property key must not be blank.", nameof(key)) : key.Trim();
+        if (value is null) throw new ArgumentNullException(nameof(value));
+        if (element.Properties.TryGetValue(normalizedKey, out var existing) && StringComparer.Ordinal.Equals(existing, value)) return element;
+        var before = CloneProject(state.Project);
+        element.SetProperty(normalizedKey, value);
+        CompleteMutation(state, before);
+        return element;
+    }
+
+    public SemanticElement AssignLocation(ICadDocument document, CadHandle handle, FloorId? floorId, ZoneId? zoneId)
+    {
+        var state = EnsureState(document);
+        if (floorId.HasValue && !state.Project.ContainsFloor(floorId.Value))
+            throw new InvalidOperationException($"Floor {floorId.Value.Value:D} does not belong to the project.");
+        if (zoneId.HasValue && !state.Project.ContainsZone(zoneId.Value))
+            throw new InvalidOperationException($"Zone {zoneId.Value.Value:D} does not belong to the project.");
+        var element = RequireElementBySource(state.Project, document.Id, handle);
+        if (Nullable.Equals(element.FloorId, floorId) && Nullable.Equals(element.ZoneId, zoneId)) return element;
+        var before = CloneProject(state.Project);
+        element.AssignLocation(floorId, zoneId);
+        CompleteMutation(state, before);
         return element;
     }
 
@@ -82,6 +134,20 @@ public sealed class StandaloneSemanticWorkspace
         state = new ProjectState(new SemanticProject(ProjectId.New(), document.Name));
         _states.Add(document.Id, state);
         return state;
+    }
+
+    private static SemanticElement RequireElementBySource(SemanticProject project, DrawingId drawingId, CadHandle handle)
+    {
+        var reference = new CadReference(drawingId, handle);
+        return project.Elements.FirstOrDefault(element => element.SourceReference.HasValue && element.SourceReference.Value.Equals(reference))
+            ?? throw new KeyNotFoundException($"No semantic element owns source CAD handle {handle}.");
+    }
+
+    private static void CompleteMutation(ProjectState state, SemanticProject before)
+    {
+        state.Undo.Push(new SemanticChange(before, CloneProject(state.Project)));
+        state.Redo.Clear();
+        state.Revision++;
     }
 
     private static SemanticProject CloneProject(SemanticProject source)

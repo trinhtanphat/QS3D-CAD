@@ -16,6 +16,7 @@ public static class SemanticCommands
         registry.Register(new SemanticListCommand(workspace));
         registry.Register(new HealthCommand(workspace));
         registry.Register(new CountCommand(workspace));
+        SemanticAuthoringCommands.RegisterAll(registry, workspace);
     }
 
     private sealed class TagCommand : ICadCommand
@@ -24,7 +25,6 @@ public static class SemanticCommands
         public TagCommand(StandaloneSemanticWorkspace workspace) => _workspace = workspace;
         public string Name => "QSTAG";
         public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ModifiesDrawing;
-
         public CommandResult Execute(CommandContext context)
         {
             if (context.Arguments.Count < 2) return CommandResult.Failure("Usage: QSTAG handle kind [name]");
@@ -33,12 +33,10 @@ public static class SemanticCommands
                 var handle = new CadHandle(context.Arguments[0]);
                 if (!Enum.TryParse<SemanticElementKind>(context.Arguments[1], true, out var kind) || kind == SemanticElementKind.Unknown)
                     return CommandResult.Failure($"Unknown semantic kind '{context.Arguments[1]}'.");
-
                 using (var tx = context.Document.Database.BeginTransaction(CadTransactionMode.ReadOnly))
                 {
                     if (tx.Get(handle) is null) return CommandResult.Failure($"Entity {handle} does not exist.");
                 }
-
                 var name = context.Arguments.Count > 2 ? string.Join(" ", context.Arguments.Skip(2)) : null;
                 var element = _workspace.TagSource(context.Document, handle, kind, name);
                 return CommandResult.Success($"Tagged {handle} as {kind} element {element.Id.Value:D}.");
@@ -56,7 +54,6 @@ public static class SemanticCommands
         public SemanticListCommand(StandaloneSemanticWorkspace workspace) => _workspace = workspace;
         public string Name => "QSLIST";
         public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ReadOnly;
-
         public CommandResult Execute(CommandContext context)
         {
             var project = _workspace.Ensure(context.Document);
@@ -75,7 +72,6 @@ public static class SemanticCommands
         public HealthCommand(StandaloneSemanticWorkspace workspace) => _workspace = workspace;
         public string Name => "QSHEALTH";
         public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ReadOnly;
-
         public CommandResult Execute(CommandContext context)
         {
             var report = ModelReadinessAnalyzer.Analyze(_workspace.Ensure(context.Document));
@@ -93,7 +89,6 @@ public static class SemanticCommands
         public CountCommand(StandaloneSemanticWorkspace workspace) => _workspace = workspace;
         public string Name => "QSCOUNT";
         public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ReadOnly;
-
         public CommandResult Execute(CommandContext context)
         {
             SemanticElementKind? filter = null;
@@ -104,7 +99,6 @@ public static class SemanticCommands
                     return CommandResult.Failure($"Unknown semantic kind '{context.Arguments[0]}'.");
                 filter = parsed;
             }
-
             var project = _workspace.Ensure(context.Document);
             var elements = project.Elements.Where(element => !filter.HasValue || element.Kind == filter.Value).ToArray();
             var facts = elements.Select(element => new QuantityFact(element.Id, "ELEMENT.COUNT", new QuantityValue(QuantityDimension.Count, 1d), element.SourceReference)).ToArray();
