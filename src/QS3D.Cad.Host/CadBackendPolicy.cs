@@ -17,7 +17,8 @@ public sealed class CadBackendDescriptor
         CadCapabilities capabilities,
         bool isAvailable,
         string? unavailableReason = null,
-        int priority = 0)
+        int priority = 0,
+        string? version = null)
     {
         if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("Backend ID must not be blank.", nameof(id));
         if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("Backend display name must not be blank.", nameof(displayName));
@@ -31,6 +32,7 @@ public sealed class CadBackendDescriptor
         IsAvailable = isAvailable;
         UnavailableReason = string.IsNullOrWhiteSpace(unavailableReason) ? null : unavailableReason.Trim();
         Priority = priority;
+        Version = string.IsNullOrWhiteSpace(version) ? null : version.Trim();
     }
 
     public string Id { get; }
@@ -40,6 +42,7 @@ public sealed class CadBackendDescriptor
     public bool IsAvailable { get; }
     public string? UnavailableReason { get; }
     public int Priority { get; }
+    public string? Version { get; }
 
     private static string NormalizeId(string value)
     {
