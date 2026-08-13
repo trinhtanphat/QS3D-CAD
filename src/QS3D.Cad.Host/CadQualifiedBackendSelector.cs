@@ -24,6 +24,7 @@ public static class CadQualifiedBackendSelector
         var eligible = backends
             .Where(static backend => backend.IsAvailable && backend.Kind == CadBackendKind.Native)
             .Where(backend => (backend.Capabilities & requiredCapabilities) == requiredCapabilities)
+            .Where(static backend => !string.IsNullOrWhiteSpace(backend.Version))
             .OrderByDescending(static backend => backend.Priority)
             .ThenBy(static backend => backend.Id, StringComparer.Ordinal);
 
@@ -32,6 +33,7 @@ public static class CadQualifiedBackendSelector
             var match = evidenceItems
                 .Where(static item => item.Passed)
                 .Where(item => StringComparer.Ordinal.Equals(item.BackendId, backend.Id))
+                .Where(item => StringComparer.Ordinal.Equals(item.BackendVersion, backend.Version))
                 .Where(item => StringComparer.Ordinal.Equals(item.SourceSha, normalizedSha))
                 .Where(item => (item.QualifiedCapabilities & requiredCapabilities) == requiredCapabilities)
                 .OrderByDescending(static item => item.QualifiedAt)
@@ -40,6 +42,6 @@ public static class CadQualifiedBackendSelector
             if (match is not null) return new CadQualifiedBackendSelection(backend, match);
         }
 
-        throw new InvalidOperationException($"No native CAD backend has passing exact-source evidence for {normalizedSha} and required capabilities {requiredCapabilities}.");
+        throw new InvalidOperationException($"No native CAD backend has passing exact-source and exact-version evidence for {normalizedSha} and required capabilities {requiredCapabilities}.");
     }
 }
