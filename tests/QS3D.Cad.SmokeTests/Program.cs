@@ -8,6 +8,8 @@ var tests = new (string Name, Action Run)[]
     ("drawing commands and history", DrawingCommandsAndHistory),
     ("failed erase rolls back", FailedEraseRollsBack),
     ("semantic workspace commands", SemanticWorkspaceCommands),
+    ("global undo orders CAD and semantic changes", GlobalUndoOrdersCadAndSemanticChanges),
+    ("external mutation invalidates app undo", ExternalMutationInvalidatesAppUndo),
     ("bootstrap save load round trip", BootstrapSaveLoadRoundTrip)
 };
 
@@ -78,6 +80,42 @@ static void SemanticWorkspaceCommands()
     Require(!app.Execute("QSTAG 1 Wall duplicate").Succeeded, "one source CAD entity must not be tagged twice");
     Success(app.Execute("QSCOUNT Wall"));
     Success(app.Execute("QSHEALTH"));
+}
+
+static void GlobalUndoOrdersCadAndSemanticChanges()
+{
+    var app = new StandaloneCadApplication();
+    var document = app.NewDocument("History");
+    Success(app.Execute("LINE 0 0 4 0"));
+    Success(app.Execute("QSTAG 1 Wall W1"));
+    Equal(1, Count(document.Database));
+    Equal(1, app.Projects.Get(document).Elements.Count);
+
+    Success(app.Execute("UNDO"));
+    Equal(1, Count(document.Database));
+    Equal(0, app.Projects.Get(document).Elements.Count);
+
+    Success(app.Execute("UNDO"));
+    Equal(0, Count(document.Database));
+    Success(app.Execute("REDO"));
+    Equal(1, Count(document.Database));
+    Success(app.Execute("REDO"));
+    Equal(1, app.Projects.Get(document).Elements.Count);
+}
+
+static void ExternalMutationInvalidatesAppUndo()
+{
+    var app = new StandaloneCadApplication();
+    var document = app.NewDocument("StaleHistory");
+    Success(app.Execute("LINE 0 0 1 0"));
+    using (var external = document.Database.BeginTransaction())
+    {
+        external.Append(new CadEntityDraft(CadEntityKind.Point, new QS3D.Platform.Geometry.BoundingBox3(new QS3D.Platform.Geometry.Point3(2, 2), new QS3D.Platform.Geometry.Point3(2, 2))));
+        external.Commit();
+    }
+    var result = app.Execute("UNDO");
+    Require(!result.Succeeded && result.Message!.Contains("stale", StringComparison.OrdinalIgnoreCase), "external mutation must fail closed instead of undoing the wrong command");
+    Equal(2, Count(document.Database));
 }
 
 static void BootstrapSaveLoadRoundTrip()
