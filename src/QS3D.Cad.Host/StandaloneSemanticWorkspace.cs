@@ -17,6 +17,8 @@ public sealed class StandaloneSemanticWorkspace
         _states[document.Id] = new ProjectState(CloneProject(project));
     }
 
+    public bool Detach(DrawingId drawingId) => _states.Remove(drawingId);
+
     public SemanticProject Get(ICadDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
