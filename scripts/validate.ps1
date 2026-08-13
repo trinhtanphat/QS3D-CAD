@@ -21,6 +21,15 @@ python external/QS3D-Platform/scripts/preflight.py
 Write-Host '== QS3D-Platform netstandard2.0 boundary =='
 python external/QS3D-Platform/scripts/check-netstandard20-boundary.py
 
+Write-Host '== QS3D-Platform reference services gate =='
+python external/QS3D-Platform/scripts/check-reference-services.py
+
+Write-Host '== QS3D-Platform parity gate =='
+python external/QS3D-Platform/scripts/check-parity.py
+
+Write-Host '== QS3D-Platform family schema gate =='
+python external/QS3D-Platform/scripts/check-families.py
+
 Write-Host '== Build QS3D-Platform Release =='
 dotnet build external/QS3D-Platform/QS3D.Platform.sln -c Release
 
