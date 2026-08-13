@@ -23,6 +23,9 @@ require(HOST / "Qs3dBootstrapPackageStore.cs", (
     "manifest.json", "semantic-project.json", "drawing-bootstrap.json", "MaxPackageBytes", "MaxPayloadBytes",
     "SHA256.HashData", "CryptographicOperations.FixedTimeEquals", "duplicate entry", "missing or unexpected entries",
 ))
+require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "IsValid", "PublishBackup", "File.Move"))
+require(HOST / "Qs3dBootstrapRecoveryReader.cs", ("RecoveredFromBackup", "PrimaryError", "BackupPath"))
+require(HOST / "StandaloneCadPackageExtensions.cs", ("SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery"))
 require(HOST / "CadBackendPolicy.cs", ("CadBackendKind.Native", "RequireNative", "Production"))
 require(HOST / "CadBackendEvidence.cs", ("CadBackendQualificationEvidence", "SourceSha", "QualifiedCapabilities", "Passed"))
 require(HOST / "CadQualifiedBackendSelector.cs", ("SelectProduction", "CadBackendKind.Native", "QualifiedCapabilities"))
@@ -31,8 +34,9 @@ for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotRe
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
-    "CadBackendPolicyModuleSmoke.cs", "CadBackendQualificationModuleSmoke.cs",
-    "Qs3dBootstrapPackageModuleSmoke.cs", "SemanticAuthoringQuantityModuleSmoke.cs",
+    "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
+    "CadBackendQualificationModuleSmoke.cs", "Qs3dBootstrapPackageModuleSmoke.cs",
+    "SemanticAuthoringQuantityModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
