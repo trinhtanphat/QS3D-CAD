@@ -22,10 +22,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha' 2>/dev/null || true)"
-          if [[ -n "$existing" ]]; then
-            if [[ "$existing" != "$TARGET_SHA" ]]; then
-              echo "Tag $TAG already points to $existing, expected $TARGET_SHA" >&2
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --silent >/dev/null 2>&1; then
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
+            if [[ "$actual" != "$TARGET_SHA" ]]; then
+              echo "Tag $TAG already points to $actual, expected $TARGET_SHA" >&2
               exit 1
             fi
             echo "Tag $TAG already points to the validated SHA."
