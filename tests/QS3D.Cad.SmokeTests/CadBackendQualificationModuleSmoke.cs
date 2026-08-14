@@ -61,7 +61,35 @@ internal static class CadBackendQualificationModuleSmoke
         Throws<InvalidOperationException>(() => CadQualifiedBackendSelector.SelectProduction(
             new[] { native }, new[] { evidence }, CadCapabilities.NativeSolids, SourceA));
 
-        Console.WriteLine("PASS exact-SHA and exact-version native backend qualification policy");
+        var duplicateBackend = new CadBackendDescriptor(
+            native.Id,
+            "Duplicate native test backend",
+            CadBackendKind.Native,
+            native.Capabilities,
+            isAvailable: true,
+            priority: 20,
+            version: native.Version);
+        Throws<InvalidOperationException>(() => CadQualifiedBackendSelector.SelectProduction(
+            new[] { native, duplicateBackend },
+            new[] { evidence },
+            CadCapabilities.TwoDimensional,
+            SourceA));
+
+        var duplicateEvidence = new CadBackendQualificationEvidence(
+            native.Id,
+            native.Version!,
+            SourceA,
+            CadCapabilities.TwoDimensional,
+            evidence.QualifiedAt.AddMinutes(1),
+            evidence.EvidenceId,
+            passed: true);
+        Throws<InvalidOperationException>(() => CadQualifiedBackendSelector.SelectProduction(
+            new[] { native },
+            new[] { evidence, duplicateEvidence },
+            CadCapabilities.TwoDimensional,
+            SourceA));
+
+        Console.WriteLine("PASS exact-SHA, exact-version and unambiguous native backend qualification policy");
     }
 
     private static void Equal<T>(T expected, T actual) where T : notnull
