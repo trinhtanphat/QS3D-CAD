@@ -124,16 +124,7 @@ public sealed class Qs3dBootstrapPackageStore
         ValidatePayload(manifest, SemanticEntry, semanticBytes);
         ValidatePayload(manifest, DrawingEntry, drawingBytes);
 
-        SemanticProjectSnapshot semanticSnapshot;
-        try
-        {
-            semanticSnapshot = JsonSerializer.Deserialize<SemanticProjectSnapshot>(semanticBytes, JsonOptions)
-                ?? throw new InvalidDataException("Semantic project payload is empty.");
-        }
-        catch (Exception ex) when (ex is JsonException or ArgumentException or FormatException)
-        {
-            throw new InvalidDataException("Semantic project payload is invalid.", ex);
-        }
+        var semanticSnapshot = DeserializeSemanticSnapshot(semanticBytes);
         var project = SemanticSnapshotService.Restore(semanticSnapshot);
         if (project.Id.Value != manifest.ProjectId) throw new InvalidDataException("Manifest project identity does not match the semantic payload.");
 
@@ -156,6 +147,150 @@ public sealed class Qs3dBootstrapPackageStore
         {
             DeleteIfExists(drawingTemp);
         }
+    }
+
+    private static SemanticProjectSnapshot DeserializeSemanticSnapshot(byte[] bytes)
+    {
+        try
+        {
+            using var json = JsonDocument.Parse(bytes, new JsonDocumentOptions { MaxDepth = JsonOptions.MaxDepth });
+            var root = RequireObject(json.RootElement, "semantic project");
+            var schemaVersion = RequireInt32(root, "SchemaVersion");
+            var projectId = RequireGuid(root, "ProjectId");
+            var name = RequireString(root, "Name");
+            var floors = RequireArray(root, "Floors").EnumerateArray().Select(ParseFloor).ToArray();
+            var zones = RequireArray(root, "Zones").EnumerateArray().Select(ParseZone).ToArray();
+            var families = RequireArray(root, "Families").EnumerateArray().Select(ParseFamily).ToArray();
+            var elements = RequireArray(root, "Elements").EnumerateArray().Select(ParseElement).ToArray();
+            return new SemanticProjectSnapshot(schemaVersion, projectId, name, floors, zones, families, elements);
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is JsonException or ArgumentException or FormatException or OverflowException or InvalidOperationException)
+        {
+            throw new InvalidDataException("Semantic project payload is invalid.", ex);
+        }
+    }
+
+    private static FloorSnapshot ParseFloor(JsonElement value)
+    {
+        var item = RequireObject(value, "semantic floor");
+        return new FloorSnapshot(RequireGuid(item, "Id"), RequireString(item, "Name"), RequireDouble(item, "ElevationM"));
+    }
+
+    private static ZoneSnapshot ParseZone(JsonElement value)
+    {
+        var item = RequireObject(value, "semantic zone");
+        return new ZoneSnapshot(RequireGuid(item, "Id"), RequireString(item, "Name"));
+    }
+
+    private static FamilySnapshot ParseFamily(JsonElement value)
+    {
+        var item = RequireObject(value, "semantic family");
+        return new FamilySnapshot(RequireGuid(item, "Id"), RequireKind(item, "Kind"), RequireString(item, "Name"));
+    }
+
+    private static ElementSnapshot ParseElement(JsonElement value)
+    {
+        var item = RequireObject(value, "semantic element");
+        var source = RequireProperty(item, "SourceReference");
+        var sourceReference = source.ValueKind == JsonValueKind.Null ? null : ParseReference(source);
+        var generated = RequireArray(item, "GeneratedReferences").EnumerateArray().Select(ParseReference).ToArray();
+        var propertiesElement = RequireObject(RequireProperty(item, "Properties"), "semantic element properties");
+        var properties = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var property in propertiesElement.EnumerateObject())
+        {
+            if (property.Value.ValueKind != JsonValueKind.String)
+                throw new InvalidDataException($"Semantic property '{property.Name}' must be a string.");
+            properties.Add(property.Name, property.Value.GetString() ?? string.Empty);
+        }
+
+        return new ElementSnapshot(
+            RequireGuid(item, "Id"),
+            RequireKind(item, "Kind"),
+            RequireString(item, "Name"),
+            RequireGuid(item, "FamilyId"),
+            ReadNullableGuid(item, "FloorId"),
+            ReadNullableGuid(item, "ZoneId"),
+            sourceReference,
+            generated,
+            properties);
+    }
+
+    private static CadReferenceSnapshot ParseReference(JsonElement value)
+    {
+        var item = RequireObject(value, "CAD reference");
+        return new CadReferenceSnapshot(RequireGuid(item, "DrawingId"), RequireString(item, "Handle"));
+    }
+
+    private static JsonElement RequireProperty(JsonElement parent, string name)
+    {
+        if (!parent.TryGetProperty(name, out var value))
+            throw new InvalidDataException($"Semantic project payload is missing '{name}'.");
+        return value;
+    }
+
+    private static JsonElement RequireObject(JsonElement value, string label)
+    {
+        if (value.ValueKind != JsonValueKind.Object) throw new InvalidDataException($"{label} must be a JSON object.");
+        return value;
+    }
+
+    private static JsonElement RequireArray(JsonElement parent, string name)
+    {
+        var value = RequireProperty(parent, name);
+        if (value.ValueKind != JsonValueKind.Array) throw new InvalidDataException($"Semantic project '{name}' must be an array.");
+        return value;
+    }
+
+    private static string RequireString(JsonElement parent, string name)
+    {
+        var value = RequireProperty(parent, name);
+        if (value.ValueKind != JsonValueKind.String) throw new InvalidDataException($"Semantic project '{name}' must be a string.");
+        return value.GetString() ?? string.Empty;
+    }
+
+    private static int RequireInt32(JsonElement parent, string name)
+    {
+        var value = RequireProperty(parent, name);
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var result))
+            throw new InvalidDataException($"Semantic project '{name}' must be a 32-bit integer.");
+        return result;
+    }
+
+    private static double RequireDouble(JsonElement parent, string name)
+    {
+        var value = RequireProperty(parent, name);
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetDouble(out var result))
+            throw new InvalidDataException($"Semantic project '{name}' must be numeric.");
+        return result;
+    }
+
+    private static Guid RequireGuid(JsonElement parent, string name)
+    {
+        var value = RequireProperty(parent, name);
+        if (value.ValueKind != JsonValueKind.String || !value.TryGetGuid(out var result))
+            throw new InvalidDataException($"Semantic project '{name}' must be a GUID.");
+        return result;
+    }
+
+    private static Guid? ReadNullableGuid(JsonElement parent, string name)
+    {
+        var value = RequireProperty(parent, name);
+        if (value.ValueKind == JsonValueKind.Null) return null;
+        if (value.ValueKind != JsonValueKind.String || !value.TryGetGuid(out var result))
+            throw new InvalidDataException($"Semantic project '{name}' must be null or a GUID.");
+        return result;
+    }
+
+    private static SemanticElementKind RequireKind(JsonElement parent, string name)
+    {
+        var value = RequireProperty(parent, name);
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var raw))
+            throw new InvalidDataException($"Semantic project '{name}' must be a semantic element kind value.");
+        return (SemanticElementKind)raw;
     }
 
     private static void WriteEntry(ZipArchive archive, string name, byte[] bytes)
