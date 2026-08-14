@@ -1,4 +1,4 @@
-name: Bootstrap QS3D CAD Preview Tag
+name: Bootstrap QS3D CAD Preview Release
 
 on:
   push:
@@ -7,44 +7,23 @@ on:
       - .github/workflows/bootstrap-preview-tag.yml
 
 permissions:
-  contents: write
   actions: write
+  contents: read
 
 jobs:
-  tag:
+  release:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: v0.1.0-preview.2
-      TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d
+      RELEASE_REF: release/v0.1.0-preview.2
     steps:
-      - name: Ensure immutable preview tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --silent >/dev/null 2>&1; then
-            actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
-            if [[ "$actual" != "$TARGET_SHA" ]]; then
-              echo "Tag $TAG already points to $actual, expected $TARGET_SHA" >&2
-              exit 1
-            fi
-            echo "Tag $TAG already points to the validated SHA."
-          else
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-              -f ref="refs/tags/$TAG" \
-              -f sha="$TARGET_SHA" >/dev/null
-            actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
-            test "$actual" = "$TARGET_SHA"
-            echo "Created $TAG -> $actual"
-          fi
-
-      - name: Dispatch Windows release on exact tag
+      - name: Dispatch Windows release from validated branch
         shell: bash
         run: |
           set -euo pipefail
           gh workflow run release-windows.yml \
             --repo "$GITHUB_REPOSITORY" \
-            --ref "$TAG" \
+            --ref "$RELEASE_REF" \
             -f confirm_release=RELEASE
-          echo "Dispatched Windows release for $TAG"
+          echo "Dispatched Windows release from $RELEASE_REF"
