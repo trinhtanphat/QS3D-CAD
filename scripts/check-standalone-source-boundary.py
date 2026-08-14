@@ -29,6 +29,7 @@ require(HOST / "StandaloneCadApplication.cs", (
     "CloseDocument", "Projects.Detach", "_undo.Remove", "_redo.Remove", "RecordMutation",
 ))
 forbid(HOST / "BuiltInCommands.cs", ("new UndoCommand", "new RedoCommand", "class UndoCommand", "class RedoCommand"))
+require(HOST / "BuiltInCommands.cs", ("would overflow the finite coordinate range",))
 require(HOST / "StandaloneSemanticWorkspace.cs", ("Detach(DrawingId", "_states.Remove"))
 require(HOST / "StandaloneModelReadinessAnalyzer.cs", ("ORPHAN_HANDLE", "CadTransactionMode.ReadOnly", "ModelReadinessAnalyzer.Analyze"))
 require(HOST / "SemanticCommands.cs", ("SemanticAuthoringCommands.RegisterAll", "StandaloneModelReadinessAnalyzer.Analyze"))
@@ -61,7 +62,7 @@ for regression in (
     "StandaloneParityModuleSmoke.cs", "StandaloneFamilySchemaModuleSmoke.cs",
     "CommandRegistrationModuleSmoke.cs", "DocumentLifecycleCleanupModuleSmoke.cs",
     "StandaloneOrphanHandleHealthModuleSmoke.cs", "BootstrapDrawingCorruptionModuleSmoke.cs",
-    "CommandJournalFailureModuleSmoke.cs",
+    "CommandJournalFailureModuleSmoke.cs", "DerivedCoordinateOverflowModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
