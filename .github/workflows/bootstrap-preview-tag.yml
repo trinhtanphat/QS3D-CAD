@@ -16,8 +16,8 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: v0.1.0-preview.1
-      TARGET_SHA: 8eacfd48867227a59470649692038d0373656aaa
+      TAG: v0.1.0-preview.2
+      TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d
     steps:
       - name: Ensure immutable preview tag
         shell: bash
