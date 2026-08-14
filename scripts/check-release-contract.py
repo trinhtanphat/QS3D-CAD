@@ -76,6 +76,7 @@ def main() -> int:
         ("confirm_release:", "manual release must require an explicit confirmation input"),
         ("RELEASE_CONFIRMATION", "manual release confirmation must be bound into the validation step"),
         ("-ne 'RELEASE'", "manual release must fail closed unless confirmation is RELEASE"),
+        ("git tag --list", "release must probe optional version tags without terminating on absence"),
         ("git rev-list -n 1", "release must bind an existing version tag to the checked-out source SHA"),
         ("Refusing to replace assets across source SHAs", "release must refuse cross-SHA asset replacement"),
         ("tag_exists=", "release creation must distinguish verified existing tags from new tags"),
@@ -89,6 +90,17 @@ def main() -> int:
     ):
         require(token in release, description, failures)
     require("branches:\n      - main" not in release, "release workflow must never auto-publish from a main-branch push", failures)
+
+    bootstrap = read(".github/workflows/bootstrap-preview-tag.yml")
+    for token, description in (
+        ("RELEASE_REF: release/v0.1.0-preview.2", "preview bootstrap must use the dedicated validated release branch"),
+        ("TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d", "preview bootstrap must bind the release branch to the validated CAD SHA"),
+        ("git/ref/heads/$RELEASE_REF", "bootstrap must read back the release branch ref before dispatch"),
+        ("actual\" != \"$TARGET_SHA", "bootstrap must fail closed if release branch source identity drifts"),
+        ("gh workflow run release-windows.yml", "bootstrap must dispatch the hardened Windows release workflow"),
+        ("--ref \"$RELEASE_REF\"", "release workflow must run from the exact validated release branch"),
+    ):
+        require(token in bootstrap, description, failures)
 
     if failures:
         print("QS3D CAD release contract FAILED")

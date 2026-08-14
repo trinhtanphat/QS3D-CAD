@@ -17,7 +17,19 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       RELEASE_REF: release/v0.1.0-preview.2
+      TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d
     steps:
+      - name: Verify validated release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$RELEASE_REF" --jq '.object.sha')"
+          if [[ "$actual" != "$TARGET_SHA" ]]; then
+            echo "Release branch $RELEASE_REF points to $actual, expected validated SHA $TARGET_SHA" >&2
+            exit 1
+          fi
+          echo "Validated release branch: $RELEASE_REF -> $actual"
+
       - name: Dispatch Windows release from validated branch
         shell: bash
         run: |
