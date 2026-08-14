@@ -15,6 +15,7 @@ public static class BuiltInCommands
         registry.Register(new RectangleCommand());
         registry.Register(new MoveCommand());
         registry.Register(new CopyCommand());
+        registry.Register(new ScaleCommand());
         registry.Register(new SelectCommand());
         registry.Register(new EraseCommand());
         registry.Register(new ListCommand());
@@ -51,6 +52,38 @@ public static class BuiltInCommands
         return result;
     }
 
+    private static BoundingBox3 ScaleExtents(BoundingBox3 extents, double baseX, double baseY, double factor)
+        => new(
+            new Point3(
+                ScaleCoordinate(extents.Min.X, baseX, factor, "minimum X"),
+                ScaleCoordinate(extents.Min.Y, baseY, factor, "minimum Y"),
+                extents.Min.Z),
+            new Point3(
+                ScaleCoordinate(extents.Max.X, baseX, factor, "maximum X"),
+                ScaleCoordinate(extents.Max.Y, baseY, factor, "maximum Y"),
+                extents.Max.Z));
+
+    private static IReadOnlyDictionary<string, string> ScaleProperties(CadEntitySnapshot entity, double baseX, double baseY, double factor)
+    {
+        var result = CloneProperties(entity.Properties);
+        ScaleCoordinateProperty(result, "x1", baseX, factor);
+        ScaleCoordinateProperty(result, "x2", baseX, factor);
+        ScaleCoordinateProperty(result, "cx", baseX, factor);
+        ScaleCoordinateProperty(result, CadBlockReferencePropertyNames.InsertionX, baseX, factor);
+        ScaleCoordinateProperty(result, "y1", baseY, factor);
+        ScaleCoordinateProperty(result, "y2", baseY, factor);
+        ScaleCoordinateProperty(result, "cy", baseY, factor);
+        ScaleCoordinateProperty(result, CadBlockReferencePropertyNames.InsertionY, baseY, factor);
+        if (entity.Kind == CadEntityKind.Circle)
+            ScaleLengthProperty(result, "radius", factor);
+        if (entity.Kind == CadEntityKind.BlockReference)
+            ScaleLengthProperty(result, CadBlockReferencePropertyNames.UniformScale, factor);
+        return result;
+    }
+
+    private static bool SupportsReferenceScale(CadEntityKind kind)
+        => kind is CadEntityKind.Line or CadEntityKind.Polyline or CadEntityKind.Circle or CadEntityKind.BlockReference;
+
     private static double AddFinite(double current, double delta, string label)
     {
         var shifted = current + delta;
@@ -59,12 +92,51 @@ public static class BuiltInCommands
         return shifted;
     }
 
+    private static double ScaleCoordinate(double current, double origin, double factor, string label)
+    {
+        var delta = current - origin;
+        if (!double.IsFinite(delta))
+            throw new OverflowException($"Entity {label} delta would overflow the finite coordinate range.");
+        var scaledDelta = delta * factor;
+        if (!double.IsFinite(scaledDelta))
+            throw new OverflowException($"Entity {label} scale would overflow the finite coordinate range.");
+        return AddFinite(origin, scaledDelta, label);
+    }
+
+    private static double MultiplyFinite(double current, double factor, string label)
+    {
+        var scaled = current * factor;
+        if (!double.IsFinite(scaled))
+            throw new OverflowException($"Entity {label} would overflow the finite numeric range.");
+        return scaled;
+    }
+
     private static void Shift(Dictionary<string, string> properties, string key, double delta)
     {
         if (!properties.TryGetValue(key, out var raw)) return;
         if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var current) || !double.IsFinite(current))
             throw new FormatException($"Entity property {key} is not a finite number.");
         properties[key] = AddFinite(current, delta, $"property {key}").ToString("R", CultureInfo.InvariantCulture);
+    }
+
+    private static void ScaleCoordinateProperty(Dictionary<string, string> properties, string key, double origin, double factor)
+    {
+        if (!properties.TryGetValue(key, out var raw)) return;
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var current) || !double.IsFinite(current))
+            throw new FormatException($"Entity property {key} is not a finite number.");
+        properties[key] = ScaleCoordinate(current, origin, factor, $"property {key}").ToString("R", CultureInfo.InvariantCulture);
+    }
+
+    private static void ScaleLengthProperty(Dictionary<string, string> properties, string key, double factor)
+    {
+        if (!properties.TryGetValue(key, out var raw))
+            throw new FormatException($"Entity property {key} is required for scaling.");
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var current) || !double.IsFinite(current))
+            throw new FormatException($"Entity property {key} is not a finite number.");
+        var scaled = MultiplyFinite(current, factor, $"property {key}");
+        if (scaled <= 0d)
+            throw new InvalidOperationException($"Entity property {key} must remain greater than zero after scaling.");
+        properties[key] = scaled.ToString("R", CultureInfo.InvariantCulture);
     }
 
     private static CommandResult Usage(string text) => CommandResult.Failure($"Usage: {text}");
@@ -202,6 +274,49 @@ public static class BuiltInCommands
                 tx.Commit();
                 context.Document.Editor.Selection.Set(copiedHandles);
                 return CommandResult.Success($"Copied {copiedHandles.Count} object(s).");
+            }
+            catch (Exception ex) when (ex is FormatException or ArgumentException or OverflowException or InvalidOperationException)
+            {
+                return CommandResult.Failure(ex.Message);
+            }
+        }
+    }
+
+    private sealed class ScaleCommand : ICadCommand
+    {
+        public string Name => "SCALE";
+        public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ModifiesDrawing;
+        public CommandResult Execute(CommandContext context)
+        {
+            if (context.Arguments.Count < 4) return Usage("SCALE handle... baseX baseY factor");
+            try
+            {
+                var handles = context.Arguments.Take(context.Arguments.Count - 3).Select(static token => new CadHandle(token)).Distinct().ToArray();
+                var baseX = Number(context.Arguments[^3], "baseX");
+                var baseY = Number(context.Arguments[^2], "baseY");
+                var factor = Number(context.Arguments[^1], "factor");
+                if (factor <= 0d) return CommandResult.Failure("factor must be greater than zero.");
+
+                using var tx = context.Document.Database.BeginTransaction();
+                var scaledEntities = new List<CadEntitySnapshot>(handles.Length);
+                foreach (var handle in handles)
+                {
+                    var entity = tx.Get(handle);
+                    if (entity is null) return CommandResult.Failure($"Entity {handle} does not exist.");
+                    if (!SupportsReferenceScale(entity.Kind))
+                        return CommandResult.Failure($"SCALE does not support {entity.Kind} in the standalone reference adapter.");
+                    scaledEntities.Add(entity with
+                    {
+                        Extents = ScaleExtents(entity.Extents, baseX, baseY, factor),
+                        Properties = ScaleProperties(entity, baseX, baseY, factor)
+                    });
+                }
+
+                foreach (var entity in scaledEntities)
+                    tx.Update(entity);
+                tx.Commit();
+                context.Document.Editor.Selection.Set(handles);
+                return CommandResult.Success($"Scaled {handles.Length} object(s).");
             }
             catch (Exception ex) when (ex is FormatException or ArgumentException or OverflowException or InvalidOperationException)
             {
