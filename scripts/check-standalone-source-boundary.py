@@ -3,6 +3,8 @@ from __future__ import annotations
 import pathlib, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 HOST = ROOT / "src" / "QS3D.Cad.Host"
+CLI = ROOT / "src" / "QS3D.Cad.Cli"
+DESKTOP = ROOT / "src" / "QS3D.Cad.Desktop"
 TESTS = ROOT / "tests" / "QS3D.Cad.SmokeTests"
 errors: list[str] = []
 
@@ -26,11 +28,11 @@ require(HOST / "StandaloneCadApplication.cs", (
     "BuiltInCommands.RegisterAll", "LayerCommands.RegisterAll", "BlockCommands.RegisterAll",
     "SemanticCommands.RegisterAll", "AdvancedReferenceCommands.RegisterAll",
     "XrefReferenceCommands.RegisterAll", "LayoutReferenceCommands.RegisterAll", "PlotReferenceCommands.RegisterAll",
-    "CloseDocument", "Projects.Detach", "_undo.Remove", "_redo.Remove", "RecordMutation",
+    "CloseDocument", "Projects.Detach", "_undo.Remove", "_redo.Remove", "RecordMutation", "ExecuteCommand",
 ))
 forbid(HOST / "BuiltInCommands.cs", ("new UndoCommand", "new RedoCommand", "class UndoCommand", "class RedoCommand"))
 require(HOST / "BuiltInCommands.cs", ("would overflow the finite coordinate range",))
-require(HOST / "CommandLineTokenizer.cs", ("tokenStarted", "tokens.Add(current.ToString())"))
+require(HOST / "CommandLineTokenizer.cs", ("tokenStarted", "index + 1", "tokens.Add(current.ToString())"))
 require(HOST / "StandaloneSemanticWorkspace.cs", ("Detach(DrawingId", "_states.Remove"))
 require(HOST / "StandaloneModelReadinessAnalyzer.cs", ("ORPHAN_HANDLE", "CadTransactionMode.ReadOnly", "ModelReadinessAnalyzer.Analyze"))
 require(HOST / "SemanticCommands.cs", ("SemanticAuthoringCommands.RegisterAll", "StandaloneModelReadinessAnalyzer.Analyze"))
@@ -52,9 +54,20 @@ require(HOST / "CadQualifiedBackendSelector.cs", ("SelectProduction", "CadBacken
 require(HOST / "CadBackendQualificationEvidenceJson.cs", ("Serialize", "Deserialize", "BackendVersion", "SourceSha"))
 for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotReferenceCommands.cs"):
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
+
+require(CLI / "Program.cs", ("ExecuteCommand(args[0], args.Skip(1))", "messageCursor", "app.Commands.Names"))
+forbid(CLI / "Program.cs", ("string.Join(' ', args)", 'string.Join(" ", args)'))
+
+require(DESKTOP / "MainWindow.xaml.cs", (
+    "SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery", "RecoveredFromBackup", "*.qs3d",
+))
+forbid(DESKTOP / "MainWindow.xaml.cs", ("SaveBootstrap(", "OpenBootstrap("))
+require(DESKTOP / "MainWindow.xaml", ("_Open project...", "_Save project...", "QS3D CAD — Standalone"))
+
 require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
 require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
 require(TESTS / "CommandRegistrationModuleSmoke.cs", ("journalCommand", "UNDO", "REDO"))
+require(TESTS / "CommandLineTokenizerModuleSmoke.cs", ("windowsPath", "ExecuteCommand"))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
