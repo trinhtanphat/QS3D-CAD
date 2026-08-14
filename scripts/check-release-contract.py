@@ -70,6 +70,8 @@ def main() -> int:
         ("Install Inno Setup 6", "CI must provision the actual Windows installer compiler"),
         ("./scripts/package-windows.ps1 -SkipValidation", "CI must compile the real installer after authoritative validation"),
         ("QS3D-CAD-Setup-win-x64.exe.sha256", "CI must verify installer checksum evidence"),
+        ("actions/upload-artifact@v4", "CI must retain the validated installer and checksum as workflow evidence"),
+        ("QS3D-CAD-${{ github.sha }}-win-x64", "CI artifact identity must bind to the exact source SHA"),
     ):
         require(token in ci, description, failures)
 
