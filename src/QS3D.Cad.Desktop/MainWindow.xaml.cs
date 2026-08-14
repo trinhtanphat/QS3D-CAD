@@ -10,6 +10,7 @@ namespace QS3D.Cad.Desktop;
 public partial class MainWindow : Window
 {
     private readonly StandaloneCadApplication _app = new();
+    private bool _refreshingUi;
 
     public MainWindow()
     {
@@ -27,17 +28,44 @@ public partial class MainWindow : Window
 
     private void RefreshUi()
     {
-        DocumentList.ItemsSource = _app.Documents.Documents.Select(x => x.Name).ToArray();
-        var document = _app.Documents.ActiveDocument;
-        if (document is null)
+        _refreshingUi = true;
+        try
         {
-            EntityList.ItemsSource = Array.Empty<string>();
-            MessageList.ItemsSource = Array.Empty<string>();
-            return;
+            var documents = _app.Documents.Documents.ToArray();
+            DocumentList.ItemsSource = documents;
+            var document = _app.Documents.ActiveDocument;
+            DocumentList.SelectedItem = document;
+            if (document is null)
+            {
+                EntityList.ItemsSource = Array.Empty<string>();
+                MessageList.ItemsSource = Array.Empty<string>();
+                return;
+            }
+            using var tx = document.Database.BeginTransaction(CadTransactionMode.ReadOnly);
+            EntityList.ItemsSource = tx.Query().Select(x => $"{x.Handle}  {x.Kind}  {x.Extents.Min} -> {x.Extents.Max}").ToArray();
+            MessageList.ItemsSource = document.Editor is InMemoryEditor editor ? editor.Messages.Reverse().Take(200).ToArray() : Array.Empty<string>();
         }
-        using var tx = document.Database.BeginTransaction(CadTransactionMode.ReadOnly);
-        EntityList.ItemsSource = tx.Query().Select(x => $"{x.Handle}  {x.Kind}  {x.Extents.Min} -> {x.Extents.Max}").ToArray();
-        MessageList.ItemsSource = document.Editor is InMemoryEditor editor ? editor.Messages.Reverse().Take(200).ToArray() : Array.Empty<string>();
+        finally
+        {
+            _refreshingUi = false;
+        }
+    }
+
+    private void DocumentList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (_refreshingUi || DocumentList.SelectedItem is not ICadDocument document) return;
+        if (_app.Documents.ActiveDocument?.Id == document.Id) return;
+        try
+        {
+            _app.Documents.Activate(document.Id);
+            StatusText.Text = $"Activated {document.Name}.";
+            RefreshUi();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = ex.Message;
+            RefreshUi();
+        }
     }
 
     private void New_Click(object sender, RoutedEventArgs e) { _app.NewDocument($"Drawing{_app.Documents.Documents.Count + 1}"); RefreshUi(); }
