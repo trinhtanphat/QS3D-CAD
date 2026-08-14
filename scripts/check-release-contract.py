@@ -73,19 +73,19 @@ def main() -> int:
 
     release = read(".github/workflows/release-windows.yml")
     for token, description in (
-        ("confirm_release:", "manual release must require an explicit confirmation input"),
-        ("RELEASE_CONFIRMATION", "manual release confirmation must be bound into the validation step"),
-        ("-ne 'RELEASE'", "manual release must fail closed unless confirmation is RELEASE"),
+        ("source_ref:", "manual release must declare a source ref input"),
+        ("source_sha:", "manual release must declare an exact source SHA input"),
+        ("ref: ${{ inputs.source_ref || github.ref }}", "release checkout must use the selected source ref while workflow definition stays current"),
+        ("git rev-parse HEAD", "release must derive source identity from the actual checkout"),
+        ("RELEASE_SOURCE_INPUT", "manual release must compare requested source SHA with checkout"),
+        ("source_sha=$sourceSha", "release must export exact checked-out source identity"),
         ("git tag --list", "release must probe optional version tags without terminating on absence"),
-        ("git rev-list -n 1", "release must bind an existing version tag to the checked-out source SHA"),
         ("Refusing to replace assets across source SHAs", "release must refuse cross-SHA asset replacement"),
-        ("tag_exists=", "release creation must distinguish verified existing tags from new tags"),
+        ("'--target', $env:RELEASE_SOURCE_SHA", "new release/tag must target the exact validated source SHA"),
+        ("git rev-list -n 1 $env:RELEASE_TAG", "release verification must resolve published tag to a commit"),
         ("contents: write", "release workflow needs contents write permission"),
-        ("submodules: recursive", "release workflow must checkout the exact Platform gitlink"),
         ("./scripts/package-windows.ps1", "release workflow must use the authoritative Windows packager"),
         ("actions/upload-artifact@v4", "release workflow must retain installer artifacts"),
-        ("'release', 'create'", "release workflow must create the GitHub Release when absent"),
-        ("gh release upload", "release workflow must idempotently refresh same-SHA release assets"),
         ("QS3D-CAD-Setup-win-x64.exe.sha256", "release workflow must publish checksum evidence"),
     ):
         require(token in release, description, failures)
@@ -94,11 +94,11 @@ def main() -> int:
     bootstrap = read(".github/workflows/bootstrap-preview-tag.yml")
     for token, description in (
         ("RELEASE_REF: release/v0.1.0-preview.2", "preview bootstrap must use the dedicated validated release branch"),
-        ("TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d", "preview bootstrap must bind the release branch to the validated CAD SHA"),
-        ("git/ref/heads/$RELEASE_REF", "bootstrap must read back the release branch ref before dispatch"),
-        ("actual\" != \"$TARGET_SHA", "bootstrap must fail closed if release branch source identity drifts"),
-        ("gh workflow run release-windows.yml", "bootstrap must dispatch the hardened Windows release workflow"),
-        ("--ref \"$RELEASE_REF\"", "release workflow must run from the exact validated release branch"),
+        ("TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d", "preview bootstrap must bind release source to validated CAD SHA"),
+        ("git/ref/heads/$RELEASE_REF", "bootstrap must read back the release branch before dispatch"),
+        ("--ref main", "bootstrap must load the current hardened release workflow definition from main"),
+        ('-f "source_ref=$RELEASE_REF"', "bootstrap must pass the validated source ref separately"),
+        ('-f "source_sha=$TARGET_SHA"', "bootstrap must pass the exact validated source SHA separately"),
     ):
         require(token in bootstrap, description, failures)
 

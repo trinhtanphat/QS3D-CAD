@@ -4,7 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       confirm_release:
-        description: "Type RELEASE to publish the VERSION at the selected commit"
+        description: "Type RELEASE to publish the VERSION at the selected source"
+        required: true
+        type: string
+      source_ref:
+        description: "Release source branch/ref to checkout"
+        required: true
+        type: string
+      source_sha:
+        description: "Exact 40-character source commit SHA expected after checkout"
         required: true
         type: string
   push:
@@ -19,9 +27,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-      - name: Checkout
+      - name: Checkout exact release source
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.source_ref || github.ref }}
           submodules: recursive
           fetch-depth: 0
 
@@ -47,7 +56,14 @@ jobs:
         shell: pwsh
         env:
           RELEASE_CONFIRMATION: ${{ inputs.confirm_release }}
+          RELEASE_SOURCE_REF: ${{ inputs.source_ref }}
+          RELEASE_SOURCE_INPUT: ${{ inputs.source_sha }}
         run: |
+          $sourceSha = (git rev-parse HEAD).Trim().ToLowerInvariant()
+          if ($sourceSha -notmatch '^[0-9a-f]{40}$') {
+            throw "Checked-out release source is not an exact commit SHA: '$sourceSha'."
+          }
+
           $version = (Get-Content VERSION -Raw).Trim()
           if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
             throw "VERSION is not release-safe: '$version'."
@@ -64,6 +80,15 @@ jobs:
             if ($env:RELEASE_CONFIRMATION -ne 'RELEASE') {
               throw "Manual release requires confirm_release=RELEASE."
             }
+            if ([string]::IsNullOrWhiteSpace($env:RELEASE_SOURCE_REF)) {
+              throw "Manual release requires source_ref."
+            }
+            if ($env:RELEASE_SOURCE_INPUT -notmatch '^[0-9a-f]{40}$') {
+              throw "Manual release requires an exact lowercase 40-character source_sha."
+            }
+            if ($sourceSha -ne $env:RELEASE_SOURCE_INPUT) {
+              throw "Checked-out SHA '$sourceSha' does not match requested source_sha '$env:RELEASE_SOURCE_INPUT'."
+            }
           }
           else {
             throw "Release workflow may run only for a version tag or an explicitly confirmed manual dispatch."
@@ -74,9 +99,9 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Failed to inspect release tags." }
           $tagExists = $matchingTags.Count -gt 0
           if ($tagExists) {
-            $tagTarget = (git rev-list -n 1 $tag).Trim()
-            if ($tagTarget -ne $env:GITHUB_SHA) {
-              throw "Release tag '$tag' points to '$tagTarget', not checked-out SHA '$env:GITHUB_SHA'. Refusing to replace assets across source SHAs."
+            $tagTarget = (git rev-list -n 1 $tag).Trim().ToLowerInvariant()
+            if ($tagTarget -ne $sourceSha) {
+              throw "Release tag '$tag' points to '$tagTarget', not checked-out source SHA '$sourceSha'. Refusing to replace assets across source SHAs."
             }
           }
           elseif ($isTagEvent) {
@@ -86,6 +111,7 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
           "tag_exists=$($tagExists.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "source_sha=$sourceSha" >> $env:GITHUB_OUTPUT
           "prerelease=$($version.Contains('-').ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
       - name: Validate and package Windows x64 installer
@@ -109,6 +135,7 @@ jobs:
           RELEASE_VERSION: ${{ steps.identity.outputs.version }}
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
           RELEASE_TAG_EXISTS: ${{ steps.identity.outputs.tag_exists }}
+          RELEASE_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
           RELEASE_PRERELEASE: ${{ steps.identity.outputs.prerelease }}
         run: |
           $installer = "artifacts/installer/QS3D-CAD-Setup-win-x64.exe"
@@ -117,11 +144,16 @@ jobs:
           $notes = @"
           Windows x64 self-contained installer for QS3D CAD $env:RELEASE_VERSION.
 
+          Source SHA: $env:RELEASE_SOURCE_SHA
+
           This preview is built from the standalone/reference product lane. It does not claim native DWG/ODA production qualification unless separate exact-SHA native evidence is published.
           "@
 
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
+            if ($env:RELEASE_TAG_EXISTS -ne 'true') {
+              throw "A release exists for '$env:RELEASE_TAG' but its tag was not resolved; refusing ambiguous asset replacement."
+            }
             $existing = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isPrerelease | ConvertFrom-Json
             $expectedPrerelease = $env:RELEASE_PRERELEASE -eq 'true'
             if ([bool]$existing.isPrerelease -ne $expectedPrerelease) {
@@ -136,26 +168,23 @@ jobs:
             $args = @(
               'release', 'create', $env:RELEASE_TAG,
               $installer, $checksum,
+              '--target', $env:RELEASE_SOURCE_SHA,
               '--title', $title,
               '--notes', $notes,
               '--repo', $env:GITHUB_REPOSITORY
             )
-            if ($env:RELEASE_TAG_EXISTS -eq 'true') {
-              $args += '--verify-tag'
-            }
-            else {
-              $args += @('--target', $env:GITHUB_SHA)
-            }
+            if ($env:RELEASE_TAG_EXISTS -eq 'true') { $args += '--verify-tag' }
             if ($env:RELEASE_PRERELEASE -eq 'true') { $args += '--prerelease' }
             & gh @args
             if ($LASTEXITCODE -ne 0) { throw "Failed to create GitHub Release." }
           }
 
-      - name: Verify published release assets
+      - name: Verify published release assets and source identity
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
           RELEASE_PRERELEASE: ${{ steps.identity.outputs.prerelease }}
         run: |
           $json = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,assets | ConvertFrom-Json
@@ -165,4 +194,9 @@ jobs:
           foreach ($required in @('QS3D-CAD-Setup-win-x64.exe', 'QS3D-CAD-Setup-win-x64.exe.sha256')) {
             if ($names -notcontains $required) { throw "Release is missing required asset '$required'." }
           }
-          Write-Host "QS3D CAD release verification PASS: $env:RELEASE_TAG"
+          git fetch --force --tags origin
+          $publishedTarget = (git rev-list -n 1 $env:RELEASE_TAG).Trim().ToLowerInvariant()
+          if ($publishedTarget -ne $env:RELEASE_SOURCE_SHA) {
+            throw "Published tag points to '$publishedTarget', expected exact source '$env:RELEASE_SOURCE_SHA'."
+          }
+          Write-Host "QS3D CAD release verification PASS: $env:RELEASE_TAG -> $publishedTarget"

@@ -30,12 +30,14 @@ jobs:
           fi
           echo "Validated release branch: $RELEASE_REF -> $actual"
 
-      - name: Dispatch Windows release from validated branch
+      - name: Dispatch current release workflow for exact source
         shell: bash
         run: |
           set -euo pipefail
           gh workflow run release-windows.yml \
             --repo "$GITHUB_REPOSITORY" \
-            --ref "$RELEASE_REF" \
-            -f confirm_release=RELEASE
-          echo "Dispatched Windows release from $RELEASE_REF"
+            --ref main \
+            -f confirm_release=RELEASE \
+            -f "source_ref=$RELEASE_REF" \
+            -f "source_sha=$TARGET_SHA"
+          echo "Dispatched current release workflow for $RELEASE_REF -> $TARGET_SHA"
