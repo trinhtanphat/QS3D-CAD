@@ -33,6 +33,14 @@ internal static class CadBackendPolicyModuleSmoke
         Throws<InvalidOperationException>(() => CadBackendSelector.Select(
             new[] { reference, unavailableNative },
             CadBackendSelectionPolicy.Production(CadCapabilities.TwoDimensional)));
+        Throws<ArgumentOutOfRangeException>(() => CadBackendSelectionPolicy.Production(CadCapabilities.None));
+        Throws<ArgumentOutOfRangeException>(() => CadBackendSelectionPolicy.Development((CadCapabilities)(1 << 20)));
+        Throws<ArgumentOutOfRangeException>(() => new CadBackendDescriptor(
+            "native.unknown-flags",
+            "Unknown flags",
+            CadBackendKind.Native,
+            (CadCapabilities)(1 << 20),
+            true));
 
         var native = new CadBackendDescriptor(
             "native.test",
