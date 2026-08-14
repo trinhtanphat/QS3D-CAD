@@ -14,6 +14,7 @@ public static class BuiltInCommands
         registry.Register(new CircleCommand());
         registry.Register(new RectangleCommand());
         registry.Register(new MoveCommand());
+        registry.Register(new CopyCommand());
         registry.Register(new SelectCommand());
         registry.Register(new EraseCommand());
         registry.Register(new ListCommand());
@@ -35,6 +36,35 @@ public static class BuiltInCommands
         foreach (var pair in source)
             result.Add(pair.Key, pair.Value);
         return result;
+    }
+
+    private static BoundingBox3 TranslateExtents(BoundingBox3 extents, double dx, double dy)
+        => new(
+            new Point3(AddFinite(extents.Min.X, dx, "minimum X"), AddFinite(extents.Min.Y, dy, "minimum Y"), extents.Min.Z),
+            new Point3(AddFinite(extents.Max.X, dx, "maximum X"), AddFinite(extents.Max.Y, dy, "maximum Y"), extents.Max.Z));
+
+    private static IReadOnlyDictionary<string, string> TranslateProperties(IReadOnlyDictionary<string, string> source, double dx, double dy)
+    {
+        var result = CloneProperties(source);
+        Shift(result, "x1", dx); Shift(result, "x2", dx); Shift(result, "cx", dx); Shift(result, CadBlockReferencePropertyNames.InsertionX, dx);
+        Shift(result, "y1", dy); Shift(result, "y2", dy); Shift(result, "cy", dy); Shift(result, CadBlockReferencePropertyNames.InsertionY, dy);
+        return result;
+    }
+
+    private static double AddFinite(double current, double delta, string label)
+    {
+        var shifted = current + delta;
+        if (!double.IsFinite(shifted))
+            throw new OverflowException($"Entity {label} would overflow the finite coordinate range.");
+        return shifted;
+    }
+
+    private static void Shift(Dictionary<string, string> properties, string key, double delta)
+    {
+        if (!properties.TryGetValue(key, out var raw)) return;
+        if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var current) || !double.IsFinite(current))
+            throw new FormatException($"Entity property {key} is not a finite number.");
+        properties[key] = AddFinite(current, delta, $"property {key}").ToString("R", CultureInfo.InvariantCulture);
     }
 
     private static CommandResult Usage(string text) => CommandResult.Failure($"Usage: {text}");
@@ -111,44 +141,72 @@ public static class BuiltInCommands
         public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ModifiesDrawing;
         public CommandResult Execute(CommandContext context)
         {
-            if (context.Arguments.Count != 3) return Usage("MOVE handle dx dy");
+            if (context.Arguments.Count < 3) return Usage("MOVE handle... dx dy");
             try
             {
-                var handle = new CadHandle(context.Arguments[0]);
-                var dx = Number(context.Arguments[1], "dx");
-                var dy = Number(context.Arguments[2], "dy");
+                var handles = context.Arguments.Take(context.Arguments.Count - 2).Select(static token => new CadHandle(token)).Distinct().ToArray();
+                var dx = Number(context.Arguments[^2], "dx");
+                var dy = Number(context.Arguments[^1], "dy");
                 using var tx = context.Document.Database.BeginTransaction();
-                var entity = tx.Get(handle);
-                if (entity is null) return CommandResult.Failure($"Entity {handle} does not exist.");
-                var delta = new Vector3(dx, dy);
-                var properties = TranslateProperties(entity.Properties, dx, dy);
-                tx.Update(entity with { Extents = new BoundingBox3(entity.Extents.Min + delta, entity.Extents.Max + delta), Properties = properties });
+                var entities = new List<CadEntitySnapshot>(handles.Length);
+                foreach (var handle in handles)
+                {
+                    var entity = tx.Get(handle);
+                    if (entity is null) return CommandResult.Failure($"Entity {handle} does not exist.");
+                    entities.Add(entity);
+                }
+                foreach (var entity in entities)
+                    tx.Update(entity with { Extents = TranslateExtents(entity.Extents, dx, dy), Properties = TranslateProperties(entity.Properties, dx, dy) });
                 tx.Commit();
-                return CommandResult.Success($"Moved {handle}.");
+                context.Document.Editor.Selection.Set(handles);
+                return CommandResult.Success($"Moved {handles.Length} object(s).");
             }
-            catch (Exception ex) when (ex is FormatException or ArgumentException or OverflowException)
+            catch (Exception ex) when (ex is FormatException or ArgumentException or OverflowException or InvalidOperationException)
             {
                 return CommandResult.Failure(ex.Message);
             }
         }
+    }
 
-        private static IReadOnlyDictionary<string, string> TranslateProperties(IReadOnlyDictionary<string, string> source, double dx, double dy)
+    private sealed class CopyCommand : ICadCommand
+    {
+        public string Name => "COPY";
+        public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ModifiesDrawing;
+        public CommandResult Execute(CommandContext context)
         {
-            var result = CloneProperties(source);
-            Shift(result, "x1", dx); Shift(result, "x2", dx); Shift(result, "cx", dx);
-            Shift(result, "y1", dy); Shift(result, "y2", dy); Shift(result, "cy", dy);
-            return result;
-        }
+            if (context.Arguments.Count < 3) return Usage("COPY handle... dx dy");
+            try
+            {
+                var sourceHandles = context.Arguments.Take(context.Arguments.Count - 2).Select(static token => new CadHandle(token)).Distinct().ToArray();
+                var dx = Number(context.Arguments[^2], "dx");
+                var dy = Number(context.Arguments[^1], "dy");
+                using var tx = context.Document.Database.BeginTransaction();
+                var sources = new List<CadEntitySnapshot>(sourceHandles.Length);
+                foreach (var handle in sourceHandles)
+                {
+                    var entity = tx.Get(handle);
+                    if (entity is null) return CommandResult.Failure($"Entity {handle} does not exist.");
+                    sources.Add(entity);
+                }
 
-        private static void Shift(Dictionary<string, string> properties, string key, double delta)
-        {
-            if (!properties.TryGetValue(key, out var raw)) return;
-            if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var current) || !double.IsFinite(current))
-                throw new FormatException($"Entity property {key} is not a finite number.");
-            var shifted = current + delta;
-            if (!double.IsFinite(shifted))
-                throw new OverflowException($"Entity property {key} would overflow the finite coordinate range.");
-            properties[key] = shifted.ToString("R", CultureInfo.InvariantCulture);
+                var copiedHandles = new List<CadHandle>(sources.Count);
+                foreach (var entity in sources)
+                {
+                    var draft = new CadEntityDraft(
+                        entity.Kind,
+                        TranslateExtents(entity.Extents, dx, dy),
+                        TranslateProperties(entity.Properties, dx, dy),
+                        entity.LayerName);
+                    copiedHandles.Add(tx.Append(draft));
+                }
+                tx.Commit();
+                context.Document.Editor.Selection.Set(copiedHandles);
+                return CommandResult.Success($"Copied {copiedHandles.Count} object(s).");
+            }
+            catch (Exception ex) when (ex is FormatException or ArgumentException or OverflowException or InvalidOperationException)
+            {
+                return CommandResult.Failure(ex.Message);
+            }
         }
     }
 
