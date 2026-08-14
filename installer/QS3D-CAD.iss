@@ -29,6 +29,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=admin
 WizardStyle=modern
+SetupIconFile=..\src\QS3D.Cad.Desktop\Assets\qs3d-app.ico
 SetupLogging=yes
 CloseApplications=yes
 RestartApplications=no

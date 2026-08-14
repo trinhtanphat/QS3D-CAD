@@ -35,6 +35,7 @@ def main() -> int:
         ("<OutputType>WinExe</OutputType>", "desktop project must publish a Windows executable"),
         ("<TargetFramework>net8.0-windows</TargetFramework>", "desktop project must target net8.0-windows"),
         ("<AssemblyName>QS3D.CAD</AssemblyName>", "desktop executable identity must remain QS3D.CAD"),
+        ("<ApplicationIcon>Assets\\qs3d-app.ico</ApplicationIcon>", "desktop executable must keep the QS3D application icon"),
     ):
         require(token in desktop, description, failures)
 
@@ -54,6 +55,7 @@ def main() -> int:
         ("AppName=QS3D CAD", "installer product name changed unexpectedly"),
         ("OutputBaseFilename=QS3D-CAD-Setup-win-x64", "installer filename contract changed unexpectedly"),
         ("ArchitecturesInstallIn64BitMode=x64compatible", "installer must use the 64-bit installation lane"),
+        ("SetupIconFile=..\\src\\QS3D.Cad.Desktop\\Assets\\qs3d-app.ico", "installer must use the QS3D application icon"),
         ("UninstallDisplayIcon={app}\\QS3D.CAD.exe", "installer uninstall identity must reference QS3D.CAD.exe"),
         ("VersionInfoVersion={#FileVersion}", "installer must keep numeric PE file version separate from preview SemVer"),
         ("VersionInfoProductVersion={#FileVersion}", "installer product-version metadata must stay numeric for Inno Setup"),

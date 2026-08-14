@@ -5,6 +5,7 @@
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>QS3D.CAD</AssemblyName>
+    <ApplicationIcon>Assets\qs3d-app.ico</ApplicationIcon>
     <Product>QS3D CAD</Product>
     <AssemblyTitle>QS3D CAD</AssemblyTitle>
     <Company>QS3D</Company>
