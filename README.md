@@ -35,6 +35,23 @@ The desktop File menu uses `*.qs3d` project packages. Save publishes through the
 
 The desktop shell currently visualizes the reference database as an entity list until a production native viewport adapter is connected.
 
+## Windows installer and releases
+
+`VERSION` is the release version source. The Windows packaging lane publishes `QS3D.CAD` self-contained for `win-x64`, then builds an Inno Setup installer and SHA-256 sidecar:
+
+```powershell
+./scripts/package-windows.ps1
+```
+
+Expected outputs are:
+
+- `artifacts/installer/QS3D-CAD-Setup-win-x64.exe`
+- `artifacts/installer/QS3D-CAD-Setup-win-x64.exe.sha256`
+
+The release workflow publishes those files as GitHub Release assets. Preview versions are marked as prereleases. The installer is self-contained, so end users do not need to install the .NET 8 desktop runtime separately.
+
+The current preview installer is not Authenticode-signed because no production code-signing certificate is stored in this repository. Windows SmartScreen may therefore warn until a trusted signing certificate is configured in CI. Also note that GitHub Release assets from a private repository are downloadable only by users who have access to that repository.
+
 ## Command surfaces
 
 Drawing and document-journal commands include:
