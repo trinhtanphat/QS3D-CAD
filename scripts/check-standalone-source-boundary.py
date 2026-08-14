@@ -25,6 +25,7 @@ require(HOST / "SemanticCommands.cs", ("SemanticAuthoringCommands.RegisterAll",)
 require(HOST / "Qs3dBootstrapPackageStore.cs", (
     "manifest.json", "semantic-project.json", "drawing-bootstrap.json", "MaxPackageBytes", "MaxPayloadBytes",
     "SHA256.HashData", "CryptographicOperations.FixedTimeEquals", "duplicate entry", "missing or unexpected entries",
+    "JsonException", "QS3D package manifest is invalid.",
 ))
 require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "CanLoad", "PublishBackup", "File.Move"))
 require(HOST / "Qs3dBootstrapRecoveryReader.cs", ("RecoveredFromBackup", "PrimaryError", "BackupPath"))
