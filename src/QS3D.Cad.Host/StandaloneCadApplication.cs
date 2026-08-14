@@ -70,16 +70,39 @@ public sealed class StandaloneCadApplication
         IReadOnlyList<string> tokens;
         try { tokens = CommandLineTokenizer.Tokenize(commandLine); }
         catch (FormatException ex) { return CommandResult.Failure(ex.Message); }
+        return ExecuteTokens(tokens, cancellationToken);
+    }
+
+    public CommandResult ExecuteCommand(string commandName, IEnumerable<string>? arguments = null, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(commandName)) return CommandResult.Failure("Command name is empty.");
+        var normalizedName = commandName.Trim();
+        if (normalizedName.Any(char.IsWhiteSpace)) return CommandResult.Failure("Command name must be a single token.");
+
+        var tokens = new List<string> { normalizedName };
+        if (arguments is not null)
+        {
+            foreach (var argument in arguments)
+            {
+                if (argument is null) return CommandResult.Failure("Command arguments must not contain null values.");
+                tokens.Add(argument);
+            }
+        }
+        return ExecuteTokens(tokens, cancellationToken);
+    }
+
+    private CommandResult ExecuteTokens(IReadOnlyList<string> tokens, CancellationToken cancellationToken)
+    {
         if (tokens.Count == 0) return CommandResult.Failure("Command line is empty.");
         var document = Documents.ActiveDocument;
         if (document is null) return CommandResult.Failure("No active drawing.");
 
+        cancellationToken.ThrowIfCancellationRequested();
         if (tokens[0].Equals("UNDO", StringComparison.OrdinalIgnoreCase))
             return Undo(document);
         if (tokens[0].Equals("REDO", StringComparison.OrdinalIgnoreCase))
             return Redo(document);
 
-        cancellationToken.ThrowIfCancellationRequested();
         var databaseRevisionBefore = document.Database.Revision;
         var semanticRevisionBefore = Projects.Revision(document);
         CommandResult result;
