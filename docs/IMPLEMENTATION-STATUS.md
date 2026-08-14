@@ -8,11 +8,11 @@
 
 ## Current development baseline
 
-- Validated CAD release/development checkpoint: `c33698efb80b259ed2ec02f1f79142256a35e8c9` (`0.1.0-preview.3`).
+- Latest validated CAD development checkpoint: `088257236d1055a7686011b9bc2d33a26c275116`.
 - Exact `QS3D-Platform` gitlink in that checkpoint: `6f720e796334a4a1acc93e0fe8736ab938412913`.
 - Platform checkpoint `6f720e796334a4a1acc93e0fe8736ab938412913` passed QS3D Platform CI #100, run `31783236730`.
-- CAD checkpoint `c33698efb80b259ed2ec02f1f79142256a35e8c9` passed QS3D CAD CI #31, run `31784331886`, including authoritative validation and real Inno Setup installer/checksum smoke.
-- The preceding branding checkpoint `afe62ffdedad5a4f517dfbd856b49166271d5005` passed QS3D CAD CI #30, run `31783852979`, proving the application icon and installer icon package successfully.
+- CAD checkpoint `088257236d1055a7686011b9bc2d33a26c275116` passed QS3D CAD CI #39, run `31788345638`, including authoritative validation and real Inno Setup installer/checksum smoke.
+- Current published preview source remains `c33698efb80b259ed2ec02f1f79142256a35e8c9` (`v0.1.0-preview.3`); the newer development drafting/UI commits do not move or rewrite that release tag.
 - CAD validates the exact recursive Platform gitlink, runs Platform source/reference gates and smoke, then standalone host/smoke, Windows desktop build and real Inno Setup installer packaging.
 
 The temporary one-shot preview.3 publisher was added only to publish the exact validated `c33698ef...` candidate because the connected automation surface could not dispatch the standard manual release workflow directly. After successful publication it was removed from `main`; the release tag remains bound to `c33698ef...` and the standard hardened release workflow remains the permanent release surface.
@@ -20,10 +20,13 @@ The temporary one-shot preview.3 publisher was added only to publish the exact v
 ## Implemented standalone/reference foundation
 
 - Headless application host, CLI and WPF desktop workspace over the deterministic in-memory CAD adapter.
-- Interactive reference 2D viewport with grid/axes, entity rendering, click selection, Line/Rectangle/Circle point picking, Erase/Move workflows, layer/current-layer controls, properties, command/messages panes, keyboard shortcuts, zoom-to-extents and sample drawing action.
+- Interactive reference 2D viewport with grid/axes, entity rendering, click selection, Line/Rectangle/Circle point picking, Erase/Move/Copy workflows, layer/current-layer controls, properties, command/messages panes, keyboard shortcuts, zoom-to-extents and sample drawing action.
+- Entity list supports Ctrl/Shift extended selection; the editor selection, viewport highlights and multi-object Move/Copy preparation stay synchronized for direct GUI workflows.
 - QS3D branding/logo integrated into the repository and desktop workspace; the desktop executable and Inno installer use the QS3D application icon.
 - Stable drawing IDs/CAD handles, transactions, stale-transaction guard and coordinated CAD+semantic undo/redo journal.
-- Drawing commands including `LINE`, `CIRCLE`, `RECTANG`, `MOVE`, `SELECT`, `ERASE`, `LIST` with finite-coordinate overflow guards.
+- Drawing commands include `LINE`, `CIRCLE`, `RECTANG`, `MOVE`, `COPY`, `SELECT`, `ERASE`, `LIST` with finite-coordinate overflow guards.
+- `MOVE` and `COPY` support multiple distinct source handles transactionally. Missing sources and coordinate overflow fail without partial commits; copies preserve source layers and select the newly created entities.
+- Block-reference translation keeps extents and `QS3D.InsertionX` / `QS3D.InsertionY` metadata aligned for both Move and Copy.
 - Transactional layers/current-layer ownership and static block definition/insert/delete/list workflows.
 - Semantic workspace plus `QSTAG`, `QSLIST`, `QSHEALTH`, `QSCOUNT`, `QSFLOOR`, `QSZONE`, `QSPROP`, `QSLOC`.
 - Standalone health reports `ORPHAN_HANDLE` for missing live handles and `CAD_REFERENCE_DRAWING_MISMATCH` for foreign-drawing semantic ownership.
@@ -49,6 +52,9 @@ This container is real project file I/O, but its drawing payload remains the ref
 - Platform-repin checkpoint `d36b29a7e45b13e7867fffdbe631452a720a191b` passed QS3D CAD CI #28, run `31783347077`.
 - Application/installer icon checkpoint `afe62ffdedad5a4f517dfbd856b49166271d5005` passed QS3D CAD CI #30, run `31783852979`.
 - Preview.3 source checkpoint `c33698efb80b259ed2ec02f1f79142256a35e8c9` passed QS3D CAD CI #31, run `31784331886`, including authoritative validation and the real-installer gate.
+- Transactional Copy/multi-Move checkpoint `e4a8af3e88a01bc2976d334c54407df542493cc6` passed QS3D CAD CI #37, run `31787751169`.
+- Desktop Move/Copy exposure checkpoint `596343ebb3e86a64cbd26525cde00bff8a20d9d2` passed QS3D CAD CI #38, run `31788034576`.
+- Extended-selection development checkpoint `088257236d1055a7686011b9bc2d33a26c275116` passed QS3D CAD CI #39, run `31788345638`, including authoritative validation and the real-installer gate.
 
 ## Published Windows previews
 
@@ -62,6 +68,8 @@ Published assets:
 - `QS3D-CAD-Setup-win-x64.exe.sha256` — checksum sidecar.
 
 GitHub release metadata reports the same installer SHA-256 above, and the publication workflow verified the generated installer bytes against the generated sidecar before completing.
+
+The current development checkpoint is newer than preview.3. The published preview.3 binaries therefore do not claim to contain the post-release transactional Copy/multi-Move and extended-selection UI changes until a future version is intentionally released from an exact validated source SHA.
 
 ### Prior immutable preview: `v0.1.0-preview.2`
 
