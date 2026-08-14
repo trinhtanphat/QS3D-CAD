@@ -11,25 +11,31 @@ internal static class CommandRegistrationModuleSmoke
     {
         var app = new StandaloneCadApplication();
         foreach (var name in new[] { "QSTAG", "QSFLOOR", "QSZONE", "QSPROP", "QSLOC", "QSQTY", "QSSCHEDULE" })
-            if (!app.Commands.TryResolve(name, out _)) throw new InvalidOperationException(name);
+            if (!app.Commands.Contains(name)) throw new InvalidOperationException(name);
 
         foreach (var journalCommand in new[] { "UNDO", "REDO" })
         {
-            if (app.Commands.TryResolve(journalCommand, out _))
-                throw new InvalidOperationException($"{journalCommand} must be owned by StandaloneCadApplication journal, not the public command registry.");
-            Throws<InvalidOperationException>(() => app.Commands.Register(new ReservedCommand(journalCommand)));
+            if (app.Commands.Contains(journalCommand))
+                throw new InvalidOperationException($"{journalCommand} must be owned by StandaloneCadApplication journal, not the public command catalog.");
+            Throws<InvalidOperationException>(() => app.Commands.Register(new TestCommand(journalCommand)));
         }
 
-        var publicExecute = typeof(StandaloneCommandCatalog)
+        Throws<ArgumentException>(() => app.Commands.Register(new TestCommand("")));
+        Throws<ArgumentException>(() => app.Commands.Register(new TestCommand("   ")));
+        Throws<ArgumentException>(() => app.Commands.Register(new TestCommand(null)));
+
+        var forbidden = typeof(StandaloneCommandCatalog)
             .GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
-            .FirstOrDefault(static method => StringComparer.Ordinal.Equals(method.Name, "Execute"));
-        if (publicExecute is not null)
-            throw new InvalidOperationException("StandaloneCommandCatalog must not expose raw command execution outside the application journal.");
+            .Where(static method => method.Name is "Execute" or "TryResolve")
+            .Select(static method => method.Name)
+            .ToArray();
+        if (forbidden.Length != 0)
+            throw new InvalidOperationException("StandaloneCommandCatalog must not expose raw command resolution/execution outside the application journal: " + string.Join(", ", forbidden));
     }
 
-    private sealed class ReservedCommand : ICadCommand
+    private sealed class TestCommand : ICadCommand
     {
-        public ReservedCommand(string name) => Name = name;
+        public TestCommand(string? name) => Name = name!;
         public string Name { get; }
         public CommandFlags Flags => CommandFlags.None;
         public CommandResult Execute(CommandContext context) => CommandResult.Success();
