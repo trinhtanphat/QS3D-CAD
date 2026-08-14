@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 using QS3D.Cad.Host;
 using QS3D.Platform.Cad.Abstractions;
 
@@ -29,7 +30,17 @@ internal static class CadBackendQualificationEvidenceJsonModuleSmoke
 
         Throws<InvalidDataException>(() => CadBackendQualificationEvidenceJson.Deserialize("{}"));
         Throws<InvalidOperationException>(() => CadBackendQualificationEvidenceJson.Serialize(new[] { evidence, evidence }));
-        Console.WriteLine("PASS qualification evidence JSON codec");
+        Throws<InvalidDataException>(() => CadBackendQualificationEvidenceJson.Deserialize(RewriteCapabilities(json, 0)));
+        Throws<InvalidDataException>(() => CadBackendQualificationEvidenceJson.Deserialize(RewriteCapabilities(json, 1L << 20)));
+        Console.WriteLine("PASS qualification evidence JSON codec and capability validation");
+    }
+
+    private static string RewriteCapabilities(string json, long capabilities)
+    {
+        var root = JsonNode.Parse(json)?.AsObject() ?? throw new InvalidOperationException("Evidence JSON object missing.");
+        var item = root["Items"]?.AsArray().Single()?.AsObject() ?? throw new InvalidOperationException("Evidence item missing.");
+        item["QualifiedCapabilities"] = capabilities;
+        return root.ToJsonString();
     }
 
     private static void Equal<T>(T expected, T actual) where T : notnull
