@@ -38,6 +38,13 @@ internal static class CadBackendQualificationModuleSmoke
         Equal(native.Version!, selected.Evidence.BackendVersion);
         Equal(evidence.EvidenceId, selected.Evidence.EvidenceId);
 
+        Throws<ArgumentOutOfRangeException>(() => CadQualifiedBackendSelector.SelectProduction(
+            new[] { native }, new[] { evidence }, CadCapabilities.None, SourceA));
+        Throws<ArgumentOutOfRangeException>(() => new CadBackendQualificationEvidence(
+            native.Id, native.Version!, SourceA, CadCapabilities.None, DateTimeOffset.UtcNow, "empty-pass", true));
+        Throws<ArgumentOutOfRangeException>(() => new CadBackendQualificationEvidence(
+            native.Id, native.Version!, SourceA, (CadCapabilities)(1 << 20), DateTimeOffset.UtcNow, "unknown-pass", true));
+
         Throws<InvalidOperationException>(() => CadQualifiedBackendSelector.SelectProduction(
             new[] { native }, new[] { evidence }, CadCapabilities.TwoDimensional, SourceB));
         Throws<InvalidOperationException>(() => CadQualifiedBackendSelector.SelectProduction(
@@ -89,7 +96,7 @@ internal static class CadBackendQualificationModuleSmoke
             CadCapabilities.TwoDimensional,
             SourceA));
 
-        Console.WriteLine("PASS exact-SHA, exact-version and unambiguous native backend qualification policy");
+        Console.WriteLine("PASS exact-SHA, exact-version, explicit-capability and unambiguous native backend qualification policy");
     }
 
     private static void Equal<T>(T expected, T actual) where T : notnull
