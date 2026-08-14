@@ -28,8 +28,9 @@ require(HOST / "StandaloneCadApplication.cs", (
     "BuiltInCommands.RegisterAll", "LayerCommands.RegisterAll", "BlockCommands.RegisterAll",
     "SemanticCommands.RegisterAll", "AdvancedReferenceCommands.RegisterAll",
     "XrefReferenceCommands.RegisterAll", "LayoutReferenceCommands.RegisterAll", "PlotReferenceCommands.RegisterAll",
-    "CloseDocument", "Projects.Detach", "_undo.Remove", "_redo.Remove", "RecordMutation", "ExecuteCommand",
+    "StandaloneDocumentManager", "OnDocumentOpened", "OnDocumentClosed", "RecordMutation", "ExecuteCommand",
 ))
+require(HOST / "StandaloneDocumentManager.cs", ("IDocumentManager", "_opened(document)", "_closed(id)", "InMemoryDocumentManager"))
 forbid(HOST / "BuiltInCommands.cs", ("new UndoCommand", "new RedoCommand", "class UndoCommand", "class RedoCommand"))
 require(HOST / "BuiltInCommands.cs", ("would overflow the finite coordinate range",))
 require(HOST / "CommandLineTokenizer.cs", ("tokenStarted", "index + 1", "tokens.Add(current.ToString())"))
@@ -68,6 +69,7 @@ require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Pla
 require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
 require(TESTS / "CommandRegistrationModuleSmoke.cs", ("journalCommand", "UNDO", "REDO"))
 require(TESTS / "CommandLineTokenizerModuleSmoke.cs", ("windowsPath", "ExecuteCommand"))
+require(TESTS / "DocumentLifecycleCleanupModuleSmoke.cs", ("app.Documents.Close", "Lifecycle reopened", "reused stale application journal"))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
