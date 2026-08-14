@@ -78,7 +78,10 @@ public static class BuiltInCommands
                 tx.Commit();
                 return CommandResult.Success($"Created CIRCLE {handle}.");
             }
-            catch (FormatException ex) { return CommandResult.Failure(ex.Message); }
+            catch (Exception ex) when (ex is FormatException or ArgumentException or OverflowException)
+            {
+                return CommandResult.Failure(ex.Message);
+            }
         }
     }
 
@@ -123,7 +126,10 @@ public static class BuiltInCommands
                 tx.Commit();
                 return CommandResult.Success($"Moved {handle}.");
             }
-            catch (FormatException ex) { return CommandResult.Failure(ex.Message); }
+            catch (Exception ex) when (ex is FormatException or ArgumentException or OverflowException)
+            {
+                return CommandResult.Failure(ex.Message);
+            }
         }
 
         private static IReadOnlyDictionary<string, string> TranslateProperties(IReadOnlyDictionary<string, string> source, double dx, double dy)
@@ -139,7 +145,10 @@ public static class BuiltInCommands
             if (!properties.TryGetValue(key, out var raw)) return;
             if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var current) || !double.IsFinite(current))
                 throw new FormatException($"Entity property {key} is not a finite number.");
-            properties[key] = (current + delta).ToString("R", CultureInfo.InvariantCulture);
+            var shifted = current + delta;
+            if (!double.IsFinite(shifted))
+                throw new OverflowException($"Entity property {key} would overflow the finite coordinate range.");
+            properties[key] = shifted.ToString("R", CultureInfo.InvariantCulture);
         }
     }
 
