@@ -1,6 +1,8 @@
 using System.IO.Compression;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using QS3D.Cad.Host;
 using QS3D.Platform.Domain;
 using QS3D.Platform.InMemory;
@@ -23,6 +25,8 @@ internal static class Qs3dBootstrapPackageModuleSmoke
         var path = Path.Combine(Path.GetTempPath(), $"qs3d-package-{Guid.NewGuid():N}.qs3d");
         var corrupt = Path.Combine(Path.GetTempPath(), $"qs3d-package-corrupt-{Guid.NewGuid():N}.qs3d");
         var malformedManifest = Path.Combine(Path.GetTempPath(), $"qs3d-package-manifest-{Guid.NewGuid():N}.qs3d");
+        var extraManifestPayload = Path.Combine(Path.GetTempPath(), $"qs3d-package-extra-manifest-{Guid.NewGuid():N}.qs3d");
+        var wrongMediaType = Path.Combine(Path.GetTempPath(), $"qs3d-package-media-type-{Guid.NewGuid():N}.qs3d");
         try
         {
             package.Save(document, project, path);
@@ -58,15 +62,57 @@ internal static class Qs3dBootstrapPackageModuleSmoke
                 writer.Write("{not-json");
             }
             Throws<InvalidDataException>(() => package.Load(malformedManifest));
+
+            File.Copy(path, extraManifestPayload, overwrite: true);
+            RewriteManifest(extraManifestPayload, manifest =>
+            {
+                var payloads = manifest["Payloads"]?.AsArray() ?? throw new InvalidOperationException("manifest payload array missing");
+                payloads.Add(new JsonObject
+                {
+                    ["Name"] = "undeclared-extra.json",
+                    ["MediaType"] = "application/octet-stream",
+                    ["LengthBytes"] = 0,
+                    ["Sha256Hex"] = new string('0', 64)
+                });
+            });
+            Throws<InvalidDataException>(() => package.Load(extraManifestPayload));
+
+            File.Copy(path, wrongMediaType, overwrite: true);
+            RewriteManifest(wrongMediaType, manifest =>
+            {
+                var payloads = manifest["Payloads"]?.AsArray() ?? throw new InvalidOperationException("manifest payload array missing");
+                var semantic = payloads
+                    .OfType<JsonObject>()
+                    .Single(candidate => StringComparer.Ordinal.Equals(candidate["Name"]?.GetValue<string>(), "semantic-project.json"));
+                semantic["MediaType"] = "application/octet-stream";
+            });
+            Throws<InvalidDataException>(() => package.Load(wrongMediaType));
         }
         finally
         {
-            if (File.Exists(path)) File.Delete(path);
-            if (File.Exists(corrupt)) File.Delete(corrupt);
-            if (File.Exists(malformedManifest)) File.Delete(malformedManifest);
+            foreach (var candidate in new[] { path, corrupt, malformedManifest, extraManifestPayload, wrongMediaType })
+            {
+                if (File.Exists(candidate)) File.Delete(candidate);
+            }
         }
 
         Console.WriteLine("PASS qs3d bootstrap package integrity and round trip");
+    }
+
+    private static void RewriteManifest(string path, Action<JsonObject> mutate)
+    {
+        using var file = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        using var archive = new ZipArchive(file, ZipArchiveMode.Update, leaveOpen: false);
+        var entry = archive.GetEntry("manifest.json") ?? throw new InvalidOperationException("manifest payload missing");
+        string json;
+        using (var reader = new StreamReader(entry.Open(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false))
+            json = reader.ReadToEnd();
+        var manifest = JsonNode.Parse(json)?.AsObject() ?? throw new InvalidOperationException("manifest JSON object missing");
+        mutate(manifest);
+        entry.Delete();
+        var replacement = archive.CreateEntry("manifest.json");
+        using var writer = new StreamWriter(replacement.Open(), Encoding.UTF8, leaveOpen: false);
+        writer.Write(manifest.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static void Success(QS3D.Platform.Application.CommandResult result)
