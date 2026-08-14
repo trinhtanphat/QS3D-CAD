@@ -2,6 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\QS3D.Cad.Host\QS3D.Cad.Host.csproj" />
+    <ProjectReference Include="..\..\src\QS3D.Cad.Native.Oda.Bootstrap\QS3D.Cad.Native.Oda.Bootstrap.csproj" />
     <ProjectReference Include="..\..\external\QS3D-Platform\src\QS3D.Platform.Parity\QS3D.Platform.Parity.csproj" />
     <ProjectReference Include="..\..\external\QS3D-Platform\src\QS3D.Platform.Families\QS3D.Platform.Families.csproj" />
   </ItemGroup>
