@@ -7,13 +7,14 @@ internal static class CadCapabilityValidation
     internal const CadCapabilities Known = CadCapabilities.TwoDimensional
         | CadCapabilities.ThreeDimensional
         | CadCapabilities.Blocks
-        | CadCapabilities.Layouts
-        | CadCapabilities.Layers
         | CadCapabilities.Xrefs
+        | CadCapabilities.Layouts
         | CadCapabilities.Plot
+        | CadCapabilities.NativeSolids
+        | CadCapabilities.BooleanSolids
         | CadCapabilities.ObjectSnaps
-        | CadCapabilities.CustomEntities
-        | CadCapabilities.NativeSolids;
+        | CadCapabilities.Grips
+        | CadCapabilities.Layers;
 
     public static void RequireKnown(CadCapabilities capabilities, string parameterName, bool allowNone)
     {
