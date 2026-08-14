@@ -42,6 +42,7 @@ require(HOST / "CadBackendQualificationEvidenceJson.cs", ("Serialize", "Deserial
 for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotReferenceCommands.cs"):
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
 require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
+require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
