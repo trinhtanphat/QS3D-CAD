@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using QS3D.Cad.Host;
+using QS3D.Platform.Application;
 
 namespace QS3D.Cad.SmokeTests;
 
@@ -16,6 +17,7 @@ internal static class CommandRegistrationModuleSmoke
         {
             if (app.Commands.TryResolve(journalCommand, out _))
                 throw new InvalidOperationException($"{journalCommand} must be owned by StandaloneCadApplication journal, not the public command registry.");
+            Throws<InvalidOperationException>(() => app.Commands.Register(new ReservedCommand(journalCommand)));
         }
 
         var publicExecute = typeof(StandaloneCommandCatalog)
@@ -23,5 +25,20 @@ internal static class CommandRegistrationModuleSmoke
             .FirstOrDefault(static method => StringComparer.Ordinal.Equals(method.Name, "Execute"));
         if (publicExecute is not null)
             throw new InvalidOperationException("StandaloneCommandCatalog must not expose raw command execution outside the application journal.");
+    }
+
+    private sealed class ReservedCommand : ICadCommand
+    {
+        public ReservedCommand(string name) => Name = name;
+        public string Name { get; }
+        public CommandFlags Flags => CommandFlags.None;
+        public CommandResult Execute(CommandContext context) => CommandResult.Success();
+    }
+
+    private static void Throws<T>(Action action) where T : Exception
+    {
+        try { action(); }
+        catch (T) { return; }
+        throw new InvalidOperationException($"Expected {typeof(T).Name}.");
     }
 }
