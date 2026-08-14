@@ -12,6 +12,7 @@ public static class CadQualifiedBackendSelector
     {
         if (candidates is null) throw new ArgumentNullException(nameof(candidates));
         if (evidence is null) throw new ArgumentNullException(nameof(evidence));
+        CadCapabilityValidation.RequireKnown(requiredCapabilities, nameof(requiredCapabilities), allowNone: false);
         if (sourceSha is null || sourceSha.Length != 40 || sourceSha.Any(static c => !Uri.IsHexDigit(c)))
             throw new ArgumentException("Source SHA must be an exact commit SHA.", nameof(sourceSha));
 
