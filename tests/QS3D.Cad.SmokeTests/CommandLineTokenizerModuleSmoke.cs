@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using QS3D.Cad.Host;
+using QS3D.Platform.InMemory;
 
 namespace QS3D.Cad.SmokeTests;
 
@@ -15,9 +16,14 @@ internal static class CommandLineTokenizerModuleSmoke
         Equal("Note", tokens[2]);
         Equal(string.Empty, tokens[3]);
 
-        var escaped = CommandLineTokenizer.Tokenize("QSPROP 1 Note \"a\\\"b\"");
-        Equal("a\"b", escaped[3]);
+        var embeddedQuote = CommandLineTokenizer.Tokenize("QSPROP 1 Note \"a\"\"b\"");
+        Equal("a\"b", embeddedQuote[3]);
         Throws<FormatException>(() => CommandLineTokenizer.Tokenize("QSPROP 1 Note \"unterminated"));
+
+        const string windowsPath = @"C:\Users\Admin\My Drawings\base.dwg";
+        var pathTokens = CommandLineTokenizer.Tokenize($"XREFREF ATTACH Base \"{windowsPath}\" Overlay");
+        Equal(5, pathTokens.Count);
+        Equal(windowsPath, pathTokens[3]);
 
         var app = new StandaloneCadApplication();
         app.NewDocument("Empty property");
@@ -27,7 +33,11 @@ internal static class CommandLineTokenizerModuleSmoke
         var element = app.Projects.GetElementBySource(app.Documents.ActiveDocument!, new QS3D.Platform.Domain.CadHandle("1"));
         Equal(string.Empty, element.Properties["Note"]);
 
-        Console.WriteLine("PASS command tokenizer preserves empty quoted arguments");
+        Success(app.Execute($"XREFREF ATTACH Base \"{windowsPath}\" Overlay"));
+        var xref = InMemoryAdvancedServicesRegistry.For((InMemoryCadDocument)app.Documents.ActiveDocument!).Xrefs.GetXrefs().Single();
+        Equal(windowsPath, xref.Path);
+
+        Console.WriteLine("PASS command tokenizer preserves empty quoted arguments and Windows paths");
     }
 
     private static void Success(QS3D.Platform.Application.CommandResult result)
