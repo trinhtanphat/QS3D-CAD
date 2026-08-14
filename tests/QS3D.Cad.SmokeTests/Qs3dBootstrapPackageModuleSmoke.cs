@@ -22,6 +22,7 @@ internal static class Qs3dBootstrapPackageModuleSmoke
         var package = new Qs3dBootstrapPackageStore(app.Store);
         var path = Path.Combine(Path.GetTempPath(), $"qs3d-package-{Guid.NewGuid():N}.qs3d");
         var corrupt = Path.Combine(Path.GetTempPath(), $"qs3d-package-corrupt-{Guid.NewGuid():N}.qs3d");
+        var malformedManifest = Path.Combine(Path.GetTempPath(), $"qs3d-package-manifest-{Guid.NewGuid():N}.qs3d");
         try
         {
             package.Save(document, project, path);
@@ -45,11 +46,24 @@ internal static class Qs3dBootstrapPackageModuleSmoke
                 writer.Write("{}");
             }
             Throws<InvalidDataException>(() => package.Load(corrupt));
+
+            File.Copy(path, malformedManifest, overwrite: true);
+            using (var file = new FileStream(malformedManifest, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            using (var archive = new ZipArchive(file, ZipArchiveMode.Update, leaveOpen: false))
+            {
+                var manifest = archive.GetEntry("manifest.json") ?? throw new InvalidOperationException("manifest payload missing");
+                manifest.Delete();
+                var replacement = archive.CreateEntry("manifest.json");
+                using var writer = new StreamWriter(replacement.Open(), Encoding.UTF8, leaveOpen: false);
+                writer.Write("{not-json");
+            }
+            Throws<InvalidDataException>(() => package.Load(malformedManifest));
         }
         finally
         {
             if (File.Exists(path)) File.Delete(path);
             if (File.Exists(corrupt)) File.Delete(corrupt);
+            if (File.Exists(malformedManifest)) File.Delete(malformedManifest);
         }
 
         Console.WriteLine("PASS qs3d bootstrap package integrity and round trip");
