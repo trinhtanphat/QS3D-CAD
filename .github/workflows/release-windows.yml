@@ -2,13 +2,14 @@ name: QS3D CAD Windows Release
 
 on:
   workflow_dispatch:
+    inputs:
+      confirm_release:
+        description: "Type RELEASE to publish the VERSION at the selected commit"
+        required: true
+        type: string
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-    paths:
-      - '.github/workflows/release-windows.yml'
 
 permissions:
   contents: write
@@ -44,17 +45,46 @@ jobs:
       - name: Validate release identity
         id: identity
         shell: pwsh
+        env:
+          RELEASE_CONFIRMATION: ${{ inputs.confirm_release }}
         run: |
           $version = (Get-Content VERSION -Raw).Trim()
           if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
             throw "VERSION is not release-safe: '$version'."
           }
+
           $tag = "v$version"
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) {
-            throw "Release tag '$env:GITHUB_REF_NAME' does not match VERSION '$tag'."
+          $isTagEvent = $env:GITHUB_REF_TYPE -eq 'tag'
+          if ($isTagEvent) {
+            if ($env:GITHUB_REF_NAME -ne $tag) {
+              throw "Release tag '$env:GITHUB_REF_NAME' does not match VERSION '$tag'."
+            }
           }
+          elseif ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
+            if ($env:RELEASE_CONFIRMATION -ne 'RELEASE') {
+              throw "Manual release requires confirm_release=RELEASE."
+            }
+          }
+          else {
+            throw "Release workflow may run only for a version tag or an explicitly confirmed manual dispatch."
+          }
+
+          git fetch --force --tags origin
+          git rev-parse --verify --quiet "refs/tags/$tag^{commit}" *> $null
+          $tagExists = $LASTEXITCODE -eq 0
+          if ($tagExists) {
+            $tagTarget = (git rev-list -n 1 $tag).Trim()
+            if ($tagTarget -ne $env:GITHUB_SHA) {
+              throw "Release tag '$tag' points to '$tagTarget', not checked-out SHA '$env:GITHUB_SHA'. Refusing to replace assets across source SHAs."
+            }
+          }
+          elseif ($isTagEvent) {
+            throw "Tag-triggered release cannot resolve '$tag' to the checked-out commit."
+          }
+
           "version=$version" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
+          "tag_exists=$($tagExists.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
           "prerelease=$($version.Contains('-').ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
 
       - name: Validate and package Windows x64 installer
@@ -77,6 +107,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ steps.identity.outputs.version }}
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_TAG_EXISTS: ${{ steps.identity.outputs.tag_exists }}
           RELEASE_PRERELEASE: ${{ steps.identity.outputs.prerelease }}
         run: |
           $installer = "artifacts/installer/QS3D-CAD-Setup-win-x64.exe"
@@ -90,6 +121,11 @@ jobs:
 
           gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
           if ($LASTEXITCODE -eq 0) {
+            $existing = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isPrerelease | ConvertFrom-Json
+            $expectedPrerelease = $env:RELEASE_PRERELEASE -eq 'true'
+            if ([bool]$existing.isPrerelease -ne $expectedPrerelease) {
+              throw "Existing release prerelease state does not match VERSION; refusing an implicit metadata rewrite."
+            }
             gh release upload $env:RELEASE_TAG $installer $checksum --clobber --repo $env:GITHUB_REPOSITORY
             if ($LASTEXITCODE -ne 0) { throw "Failed to update release assets." }
             gh release edit $env:RELEASE_TAG --title $title --notes $notes --repo $env:GITHUB_REPOSITORY
@@ -99,11 +135,16 @@ jobs:
             $args = @(
               'release', 'create', $env:RELEASE_TAG,
               $installer, $checksum,
-              '--target', $env:GITHUB_SHA,
               '--title', $title,
               '--notes', $notes,
               '--repo', $env:GITHUB_REPOSITORY
             )
+            if ($env:RELEASE_TAG_EXISTS -eq 'true') {
+              $args += '--verify-tag'
+            }
+            else {
+              $args += @('--target', $env:GITHUB_SHA)
+            }
             if ($env:RELEASE_PRERELEASE -eq 'true') { $args += '--prerelease' }
             & gh @args
             if ($LASTEXITCODE -ne 0) { throw "Failed to create GitHub Release." }
@@ -114,9 +155,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_PRERELEASE: ${{ steps.identity.outputs.prerelease }}
         run: |
           $json = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,assets | ConvertFrom-Json
           if ($json.tagName -ne $env:RELEASE_TAG) { throw "Published release tag mismatch." }
+          if ([bool]$json.isPrerelease -ne ($env:RELEASE_PRERELEASE -eq 'true')) { throw "Published prerelease state mismatch." }
           $names = @($json.assets | ForEach-Object { $_.name })
           foreach ($required in @('QS3D-CAD-Setup-win-x64.exe', 'QS3D-CAD-Setup-win-x64.exe.sha256')) {
             if ($names -notcontains $required) { throw "Release is missing required asset '$required'." }

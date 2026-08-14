@@ -2,90 +2,66 @@
 
 **Date:** 2026-08-14 (UTC+7)  
 **Product:** standalone Windows CAD/BIM/QS  
-**Evidence state:** `SOURCE_READY / PENDING_BUILD_AND_NATIVE_EVIDENCE`
+**Evidence state:** `SOURCE_HARDENED / WINDOWS_BUILD_EVIDENCE_BLOCKED_BY_ACTIONS_BUDGET`
 
 `QS3D-CAD` is a standalone product and does not require BricsCAD at runtime. `QS3D-Platform` remains the host-neutral shared layer; `QS3D-BricsCAD` remains the hosted compatibility product.
 
+## Current cross-repository baseline
+
+- Exact `QS3D-Platform` gitlink: `4d3080ec4eae40fb36eb48215c8891be4e459fe5`.
+- That Platform SHA is current-head source/reference validated: QS3D Platform CI #84, run `31776738279`, completed successfully.
+- CAD validation checks out the exact recursive Platform gitlink, verifies the pin, runs Platform preflight/netstandard/reference/parity/family gates, builds Platform, runs Platform smoke, then builds/runs standalone host/smoke and the Windows desktop shell.
+
 ## Implemented standalone/reference foundation
 
-- Exact `QS3D-Platform` Git submodule pin (`cfb334f2b95feb31a6f5f8969b9b1666ffbfc7c6`) and explicit pin-validation script.
-- Headless application host, CLI/WPF shell scaffold and in-memory deterministic CAD adapter.
-- Public command catalog exposes registration/membership/name discovery but not executable command instances; all execution remains inside the application journal boundary.
-- Stable drawing IDs/CAD handles, transactions, stale-transaction guard and coordinated CAD+semantic undo/redo journal, including mutation journaling when a command fails or throws after publishing a change.
+- Headless application host, CLI/WPF shell scaffold and deterministic in-memory CAD adapter.
+- Stable drawing IDs/CAD handles, transactions, stale-transaction guard and coordinated CAD+semantic undo/redo journal.
 - Drawing commands including `LINE`, `CIRCLE`, `RECTANG`, `MOVE`, `SELECT`, `ERASE`, `LIST` with finite-coordinate overflow guards.
 - Transactional layers/current-layer ownership and static block definition/insert/delete/list workflows.
 - Semantic workspace plus `QSTAG`, `QSLIST`, `QSHEALTH`, `QSCOUNT`, `QSFLOOR`, `QSZONE`, `QSPROP`, `QSLOC`.
-- Standalone health adds live-handle validation and reports `ORPHAN_HANDLE` for semantic CAD references missing from the active drawing.
+- Standalone health reports `ORPHAN_HANDLE` for missing live handles and `CAD_REFERENCE_DRAWING_MISMATCH` when semantic source/generated ownership points at another DWG identity.
+- Semantic project attachment is drawing-affinity guarded; rejected foreign-drawing state does not replace the current document project.
+- Bootstrap/package Open closes the just-opened document if semantic attachment fails, avoiding a half-open document with mismatched semantic state.
 - Shared unit-aware quantity/schedule pipeline through `QSQTY` and `QSSCHEDULE`.
-- Deterministic reference viewport/hit-test/snap/polygon-selection services exposed as `VIEW`, `ZOOMEXTENTS`, `ZOOMWINDOW`, `HITTEST`, `SNAP`, `SELPOLY`.
-- Reference-only Xref/Layout/Plot lifecycle exposed as `XREFREF`, `LAYOUTREF`, `PLOTREF`. `PLOTREF` records a request and explicitly produces no native file.
-- Document-scoped Platform reference services use a weak registry so unreferenced documents are not retained solely by reference-service state.
-- Application-owned document lifecycle cleans semantic and journal state even when callers use `app.Documents.Close(...)` directly.
-- Desktop multi-document list activates the selected drawing and File Open/Save uses the `.qs3d` package/recovery path.
-- CLI uses pre-tokenized `ExecuteCommand` for process arguments, preserves Windows paths/empty arguments and avoids replaying historical editor output after every command.
+- Deterministic reference viewport/hit-test/snap/polygon-selection plus reference Xref/Layout/Plot services.
+- Application-owned document lifecycle cleans semantic and journal state when documents close.
+- Desktop File Open/Save uses the validated `.qs3d` package/recovery path.
 
-## Persistence now implemented at bootstrap/reference level
+## Persistence and package integrity
 
-Bootstrap drawing persistence is backward-readable and includes CAD entities, semantic project state, layers/current layer and block definitions.
+The `.qs3d` bootstrap/reference package layer provides exact ZIP entry/manifest contracts, bounded reads, SHA-256 and length validation, exact media types, semantic/drawing identity consistency, canonical semantic snapshot hashing, same-directory temporary publication, validated `.qs3d.bak` backup/recovery and fail-closed behavior when primary and backup are both invalid.
 
-A `.qs3d` bootstrap/reference package layer now exists with:
+This container is real project file I/O, but its drawing payload remains the reference/bootstrap representation. It is **not native DWG fidelity evidence**.
 
-- exact ZIP entry set and schema/manifest contract;
-- bounded package/manifest/payload reads;
-- SHA-256 and declared-length validation;
-- exact manifest declaration and media-type validation;
-- semantic/drawing identity consistency checks;
-- canonical semantic snapshot hash validation;
-- malformed JSON and invalid reconstructed-state normalization to `InvalidDataException`;
-- same-directory temporary publication before primary replacement;
-- validated previous-generation `.qs3d.bak` publication;
-- explicit recovery reader returning `RecoveredFromBackup=true`, backup source path and primary failure diagnostics;
-- recovery from a hash-valid but structurally corrupt drawing payload;
-- fail-closed behavior when primary and backup cannot be validated.
+## Windows CI and release lane
 
-This is real bootstrap/reference container I/O, but the drawing payload is still QS3D bootstrap data. It is **not DWG interoperability evidence** and not yet the final native drawing payload strategy.
+- `.github/workflows/ci.yml` is a Windows validation lane that runs `scripts/validate.ps1` and a self-contained `win-x64` publish smoke.
+- `scripts/package-windows.ps1` is intentionally restricted to `win-x64`, matching the Inno Setup installer architecture and output identity.
+- The release workflow runs only from a `v*` tag or explicit manual dispatch. Manual publication requires `confirm_release=RELEASE`.
+- Existing version tags must resolve to the exact checked-out SHA before release assets may be replaced. The workflow refuses cross-SHA asset clobbering.
+- The release contract is statically guarded by `scripts/check-release-contract.py`, which is part of authoritative validation.
+- Installer output includes a SHA-256 sidecar. Authenticode signing remains pending an approved production signing certificate.
+
+## Current Windows build evidence
+
+A CAD Actions job on 2026-08-14 did not start a Windows runner because the private-repository Actions budget was exhausted (`runner_id=0`, no job steps). Therefore no `BUILD_PASS` is claimed for the current CAD SHA from GitHub-hosted Windows CI. This is an infrastructure/budget blocker, not evidence of a source compile failure.
 
 ## Production backend qualification policy
 
-Production backend selection is fail-closed:
-
-- backend must be available and `Native`;
-- required capabilities must be non-empty, known pinned capability flags;
-- duplicate backend IDs or qualification evidence IDs are rejected as ambiguous;
-- exact 40-character QS3D-CAD source SHA must match qualification evidence;
-- exact native backend version must match evidence;
-- passing evidence must cover at least one known capability and all required capabilities.
-
-The CAD capability whitelist is aligned to the exact pinned Platform contract, including `BooleanSolids` and `Grips`; nonexistent/unknown capability symbols or flag bits are rejected. Unversioned native descriptors cannot satisfy qualified production selection. Qualification evidence has a deterministic JSON codec for local/CI interchange; that JSON is not a signature or trust root.
-
-## Validation/source gates
-
-`scripts/validate.ps1` runs standalone preflight/source-boundary checks, initializes the pinned Platform submodule, verifies the exact checkout, runs Platform preflight/netstandard boundary checks, then builds/runs Platform and standalone deterministic smoke when a .NET SDK is available.
-
-Source gates lock command execution ownership, lifecycle cleanup, tokenizer/path behavior, package integrity/recovery, live-handle health, backend qualification and exact pinned capability names.
-
-The CAD repository currently has no `.github/workflows` directory, so no CAD GitHub Actions build result exists for this checkpoint.
-
-Platform CI run `31760426233` for exact pin `cfb334f2b95feb31a6f5f8969b9b1666ffbfc7c6` did not start a runner: job `94645403253` reports `runner_id=0`, no steps, and an Actions-budget annotation. This is infrastructure/budget blocking, not source build evidence.
+Production backend selection remains fail-closed: the backend must be `Native`, advertise only known required capabilities, have unambiguous evidence, and match the exact QS3D-CAD source SHA plus native backend version. Reference/in-memory success cannot satisfy production native qualification.
 
 ## Native/local-only work still required
 
-The following are not production-qualified and must remain in the local/native qualification lane described by `docs/LOCAL-NATIVE-QUALIFICATION.md`:
+The following remain outside source/reference qualification and require a legally licensed native CAD SDK/runtime:
 
-- native DWG/DXF open/save/save-as and no-op/edited round-trip fidelity;
-- real GPU viewport/device lifecycle, pan/zoom/orbit, DPI and large-drawing behavior;
-- native hit testing and true intersection/tangent/perpendicular OSNAP;
-- native Xrefs and reference resolution;
-- paper-space layouts/page setup and real PDF/printing output;
-- TRIM/EXTEND/OFFSET/FILLET/CHAMFER/JOIN/BREAK against a production geometry kernel;
+- native DWG/DXF open/save/save-as and round-trip fidelity;
+- production GPU viewport/device lifecycle and large-drawing behavior;
+- native hit testing, grips and true intersection/tangent/perpendicular OSNAP;
+- native Xrefs, layouts/page setup and PDF/printing;
+- production-kernel TRIM/EXTEND/OFFSET/FILLET/CHAMFER/JOIN/BREAK;
 - native 3D primitives/extrude/revolve/sweep/loft and B-Rep booleans;
 - text/fonts/hatches/dimensions/tables/images and dynamic/proxy object fidelity;
 - final `.qs3d` native drawing payload/reference integration;
-- plugin runtime loading, installer/signing/clean-machine evidence and crash recovery against the native backend;
-- large-project production performance.
+- installer signing, clean-machine runtime evidence and large-project performance.
 
-## Validation status
-
-No `BUILD_PASS`, `DWG_PASS`, `LOCAL_NATIVE_PASS` or `PRODUCTION_QUALIFIED` claim is made by this source checkpoint. Exact runtime claims require `scripts/validate.ps1` on a real toolchain and, for native capabilities, exact-SHA/version local evidence.
-
-Reference/in-memory success must never be reported as native CAD success.
+No `DWG_PASS`, `LOCAL_NATIVE_PASS` or `PRODUCTION_QUALIFIED` claim is made by this source checkpoint.

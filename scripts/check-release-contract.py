@@ -40,7 +40,8 @@ def main() -> int:
 
     package = read("scripts/package-windows.ps1")
     for token, description in (
-        ('-r $Runtime', "packager must publish the requested Windows runtime"),
+        ('[ValidateSet("win-x64")]', "packager must stay fail-closed to the supported Windows x64 runtime"),
+        ('-r $Runtime', "packager must publish the selected supported Windows runtime"),
         ('--self-contained true', "installer payload must remain self-contained"),
         ('QS3D.CAD.exe', "packager must verify the desktop executable"),
         ('QS3D-CAD-Setup-win-x64.exe', "packager must verify the installer output"),
@@ -69,15 +70,22 @@ def main() -> int:
 
     release = read(".github/workflows/release-windows.yml")
     for token, description in (
+        ("confirm_release:", "manual release must require an explicit confirmation input"),
+        ("RELEASE_CONFIRMATION", "manual release confirmation must be bound into the validation step"),
+        ("-ne 'RELEASE'", "manual release must fail closed unless confirmation is RELEASE"),
+        ("git rev-list -n 1", "release must bind an existing version tag to the checked-out source SHA"),
+        ("Refusing to replace assets across source SHAs", "release must refuse cross-SHA asset replacement"),
+        ("tag_exists=", "release creation must distinguish verified existing tags from new tags"),
         ("contents: write", "release workflow needs contents write permission"),
         ("submodules: recursive", "release workflow must checkout the exact Platform gitlink"),
         ("./scripts/package-windows.ps1", "release workflow must use the authoritative Windows packager"),
         ("actions/upload-artifact@v4", "release workflow must retain installer artifacts"),
         ("'release', 'create'", "release workflow must create the GitHub Release when absent"),
-        ("gh release upload", "release workflow must idempotently refresh release assets"),
+        ("gh release upload", "release workflow must idempotently refresh same-SHA release assets"),
         ("QS3D-CAD-Setup-win-x64.exe.sha256", "release workflow must publish checksum evidence"),
     ):
         require(token in release, description, failures)
+    require("branches:\n      - main" not in release, "release workflow must never auto-publish from a main-branch push", failures)
 
     if failures:
         print("QS3D CAD release contract FAILED")
