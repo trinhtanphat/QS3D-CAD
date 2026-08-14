@@ -1,0 +1,124 @@
+name: QS3D CAD Windows Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+    paths:
+      - '.github/workflows/release-windows.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+          if (-not ($candidates | Where-Object { Test-Path $_ } | Select-Object -First 1)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Failed to install Inno Setup 6." }
+          }
+
+      - name: Validate release identity
+        id: identity
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+            throw "VERSION is not release-safe: '$version'."
+          }
+          $tag = "v$version"
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne $tag) {
+            throw "Release tag '$env:GITHUB_REF_NAME' does not match VERSION '$tag'."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "prerelease=$($version.Contains('-').ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+
+      - name: Validate and package Windows x64 installer
+        shell: pwsh
+        run: ./scripts/package-windows.ps1 -Version '${{ steps.identity.outputs.version }}'
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QS3D-CAD-${{ steps.identity.outputs.version }}-win-x64
+          path: |
+            artifacts/installer/QS3D-CAD-Setup-win-x64.exe
+            artifacts/installer/QS3D-CAD-Setup-win-x64.exe.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.identity.outputs.version }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_PRERELEASE: ${{ steps.identity.outputs.prerelease }}
+        run: |
+          $installer = "artifacts/installer/QS3D-CAD-Setup-win-x64.exe"
+          $checksum = "artifacts/installer/QS3D-CAD-Setup-win-x64.exe.sha256"
+          $title = "QS3D CAD $env:RELEASE_VERSION"
+          $notes = @"
+          Windows x64 self-contained installer for QS3D CAD $env:RELEASE_VERSION.
+
+          This preview is built from the standalone/reference product lane. It does not claim native DWG/ODA production qualification unless separate exact-SHA native evidence is published.
+          "@
+
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:RELEASE_TAG $installer $checksum --clobber --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw "Failed to update release assets." }
+            gh release edit $env:RELEASE_TAG --title $title --notes $notes --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw "Failed to update release metadata." }
+          }
+          else {
+            $args = @(
+              'release', 'create', $env:RELEASE_TAG,
+              $installer, $checksum,
+              '--target', $env:GITHUB_SHA,
+              '--title', $title,
+              '--notes', $notes,
+              '--repo', $env:GITHUB_REPOSITORY
+            )
+            if ($env:RELEASE_PRERELEASE -eq 'true') { $args += '--prerelease' }
+            & gh @args
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create GitHub Release." }
+          }
+
+      - name: Verify published release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+        run: |
+          $json = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,assets | ConvertFrom-Json
+          if ($json.tagName -ne $env:RELEASE_TAG) { throw "Published release tag mismatch." }
+          $names = @($json.assets | ForEach-Object { $_.name })
+          foreach ($required in @('QS3D-CAD-Setup-win-x64.exe', 'QS3D-CAD-Setup-win-x64.exe.sha256')) {
+            if ($names -notcontains $required) { throw "Release is missing required asset '$required'." }
+          }
+          Write-Host "QS3D CAD release verification PASS: $env:RELEASE_TAG"
