@@ -6,16 +6,21 @@
 
 `QS3D-CAD` is a standalone product and does not require BricsCAD at runtime. `QS3D-Platform` remains the host-neutral shared layer; `QS3D-BricsCAD` remains the hosted compatibility product.
 
-## Current cross-repository baseline
+## Current development baseline
 
-- Exact `QS3D-Platform` gitlink used by the validated CAD/release source: `986d5baa00065a1adb53e53733811beb9cf0a2d9`.
-- Platform checkpoint `986d5baa00065a1adb53e53733811beb9cf0a2d9` passed QS3D Platform CI #94, run `31778331523`.
-- Platform current documentation HEAD `fa6f0705cc0a65ff5de5f382dccb4de53ee21969` passed QS3D Platform CI #95, run `31778887449`.
+- Validated CAD development checkpoint: `d36b29a7e45b13e7867fffdbe631452a720a191b`.
+- Exact `QS3D-Platform` gitlink in that checkpoint: `6f720e796334a4a1acc93e0fe8736ab938412913`.
+- Platform checkpoint `6f720e796334a4a1acc93e0fe8736ab938412913` passed QS3D Platform CI #100, run `31783236730`.
+- CAD checkpoint `d36b29a7e45b13e7867fffdbe631452a720a191b` passed QS3D CAD CI #28, run `31783347077`, including authoritative validation and real Inno Setup installer/checksum smoke.
 - CAD validates the exact recursive Platform gitlink, runs Platform source/reference gates and smoke, then standalone host/smoke, Windows desktop build and real Inno Setup installer packaging.
+
+This development baseline is newer than the already-published preview.2 source. Updating the development gitlink does **not** move or rewrite the published preview.2 tag or assets.
 
 ## Implemented standalone/reference foundation
 
-- Headless application host, CLI/WPF shell scaffold and deterministic in-memory CAD adapter.
+- Headless application host, CLI and WPF desktop workspace over the deterministic in-memory CAD adapter.
+- Interactive reference 2D viewport with grid/axes, entity rendering, click selection, Line/Rectangle/Circle point picking, Erase/Move workflows, layer/current-layer controls, properties, command/messages panes, keyboard shortcuts, zoom-to-extents and sample drawing action.
+- QS3D branding/logo integrated into the repository and desktop workspace.
 - Stable drawing IDs/CAD handles, transactions, stale-transaction guard and coordinated CAD+semantic undo/redo journal.
 - Drawing commands including `LINE`, `CIRCLE`, `RECTANG`, `MOVE`, `SELECT`, `ERASE`, `LIST` with finite-coordinate overflow guards.
 - Transactional layers/current-layer ownership and static block definition/insert/delete/list workflows.
@@ -26,24 +31,26 @@
 - Bootstrap JSON rejects undefined CAD entity and semantic kind enum values; shared Platform CAD contracts independently reject undefined/Unknown entity kinds.
 - Shared unit-aware quantity/schedule pipeline through `QSQTY` and `QSSCHEDULE`.
 - Deterministic reference viewport/hit-test/snap/polygon-selection plus reference Xref/Layout/Plot services.
+- Current Platform reference services fail closed on undefined Xref/plot/view/selection enums and unknown snap flag bits; conformance severity, dirty-state flags and parity expectations are also guarded against undefined values.
 - Desktop File Open/Save uses the validated `.qs3d` package/recovery path.
 
 ## Persistence and package integrity
 
-The `.qs3d` bootstrap/reference package layer provides exact ZIP entry/manifest contracts, bounded reads, SHA-256 and length validation, exact media types, semantic/drawing identity consistency, canonical semantic snapshot hashing, same-directory temporary publication, validated `.qs3d.bak` backup/recovery and fail-closed behavior when primary and backup are invalid.
+The `.qs3d` bootstrap/reference package layer provides exact ZIP entry/manifest contracts, bounded reads, SHA-256 and length validation, exact media types, semantic/drawing identity consistency, canonical semantic snapshot hashing, same-directory temporary publication, validated `.qs3d.bak` backup/recovery and fail-closed behavior when primary and backup are both invalid.
 
 This container is real project file I/O, but its drawing payload remains the reference/bootstrap representation. It is **not native DWG fidelity evidence**.
 
 ## Windows CI evidence
 
 - CAD exact source `14b0d374769cb571bb5150654ea8f0e209ea658d` passed QS3D CAD CI #17, run `31778681150`, including authoritative validation and real Inno Setup installer/checksum smoke.
-- The released source `a3c0e6d098f02c8cfbb594020b20930491339d59` is three commits ahead of `14b0d374...`; the delta changes only release/bootstrap workflow files. Release run #5 independently reran authoritative validation and Windows packaging successfully on exact `a3c0e6d...`.
-- CAD release-workflow checkpoint `b4e2baf9f770849da12a552b15d66d516c7c4a06` passed QS3D CAD CI #23, run `31779472462`, including the real-installer gate.
-- CAD provenance-cleanup checkpoint `d0fb075efe475b041b001830a8b18fcf86c0ad2e` passed QS3D CAD CI #24, run `31779833493`, including authoritative validation and real Inno Setup installer/checksum smoke.
+- The released source `a3c0e6d098f02c8cfbb594020b20930491339d59` is three commits ahead of `14b0d374...`; that delta changes only release/bootstrap workflow files. Release run #5 independently reran authoritative validation and Windows packaging successfully on exact `a3c0e6d...`.
+- CAD provenance-cleanup checkpoint `d0fb075efe475b041b001830a8b18fcf86c0ad2e` passed QS3D CAD CI #24, run `31779833493`.
+- Interactive workspace checkpoint `238da96994361ff3a6fd54cd5755ddb1174726be` passed QS3D CAD CI #27, run `31782994405`.
+- Latest validated development checkpoint `d36b29a7e45b13e7867fffdbe631452a720a191b` passed QS3D CAD CI #28, run `31783347077`, including the real-installer gate.
 
 ## Published Windows preview
 
-GitHub prerelease `v0.1.0-preview.2` is published at exact tag/source `a3c0e6d098f02c8cfbb594020b20930491339d59` by Windows Release run #5, `31779290396`.
+GitHub prerelease `v0.1.0-preview.2` remains published at exact tag/source `a3c0e6d098f02c8cfbb594020b20930491339d59` by Windows Release run #5, `31779290396`.
 
 Published assets:
 
@@ -54,7 +61,7 @@ The release workflow completed checkout, .NET/Inno setup, authoritative validati
 
 The old `v0.1.0-preview.1` release attempt failed during Inno metadata packaging before publication; preview.2 fixes that issue by keeping numeric PE installer product-version metadata separate from preview SemVer.
 
-`.github/workflows/bootstrap-preview-tag.yml` is now a read-only manual verifier for the already-published preview.2 tag/assets and cannot dispatch a new release. Future releases use `.github/workflows/release-windows.yml` with an explicit exact `source_sha` and refuse cross-SHA replacement of an existing version tag.
+`.github/workflows/bootstrap-preview-tag.yml` is a read-only manual verifier for the already-published preview.2 tag/assets and cannot dispatch a new release. Future releases use `.github/workflows/release-windows.yml` with an explicit exact `source_sha` and refuse cross-SHA replacement of an existing version tag.
 
 The preview installer is self-contained for `win-x64`. Authenticode signing remains pending an approved production signing certificate, so Windows SmartScreen may warn.
 
