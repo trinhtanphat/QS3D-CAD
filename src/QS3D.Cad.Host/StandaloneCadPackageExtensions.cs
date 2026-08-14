@@ -17,7 +17,15 @@ public static class StandaloneCadPackageExtensions
         ArgumentNullException.ThrowIfNull(application);
         var result = new Qs3dBootstrapRecoveryReader().Load(path);
         application.Documents.Open(result.Document);
-        application.Projects.Attach(result.Document, result.Project);
-        return result;
+        try
+        {
+            application.Projects.Attach(result.Document, result.Project);
+            return result;
+        }
+        catch
+        {
+            application.Documents.Close(result.Document.Id);
+            throw;
+        }
     }
 }

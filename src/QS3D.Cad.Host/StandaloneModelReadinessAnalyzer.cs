@@ -35,7 +35,15 @@ public static class StandaloneModelReadinessAnalyzer
         HashSet<CadHandle> liveHandles,
         ICollection<DiagnosticFinding> findings)
     {
-        if (reference.DrawingId != currentDrawingId) return;
+        if (reference.DrawingId != currentDrawingId)
+        {
+            findings.Add(new DiagnosticFinding(
+                "CAD_REFERENCE_DRAWING_MISMATCH",
+                DiagnosticSeverity.Error,
+                $"Element '{element.Name}' {role} CAD reference belongs to drawing {reference.DrawingId.Value:D}, not active drawing {currentDrawingId.Value:D}.",
+                element.Id));
+            return;
+        }
         if (liveHandles.Contains(reference.Handle)) return;
         findings.Add(new DiagnosticFinding(
             "ORPHAN_HANDLE",

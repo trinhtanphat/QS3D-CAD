@@ -14,7 +14,9 @@ public sealed class StandaloneSemanticWorkspace
     {
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(project);
-        _states[document.Id] = new ProjectState(CloneProject(project));
+        var cloned = CloneProject(project);
+        RequireDrawingAffinity(document.Id, cloned);
+        _states[document.Id] = new ProjectState(cloned);
     }
 
     public bool Detach(DrawingId drawingId) => _states.Remove(drawingId);
@@ -143,6 +145,24 @@ public sealed class StandaloneSemanticWorkspace
         var reference = new CadReference(drawingId, handle);
         return project.Elements.FirstOrDefault(element => element.SourceReference.HasValue && element.SourceReference.Value.Equals(reference))
             ?? throw new KeyNotFoundException($"No semantic element owns source CAD handle {handle}.");
+    }
+
+    private static void RequireDrawingAffinity(DrawingId drawingId, SemanticProject project)
+    {
+        foreach (var element in project.Elements.OrderBy(static candidate => candidate.Id.Value))
+        {
+            if (element.SourceReference.HasValue)
+                RequireReferenceDrawing(drawingId, element, element.SourceReference.Value, "source");
+            foreach (var generated in element.GeneratedReferences.OrderBy(static reference => reference.DrawingId.Value).ThenBy(static reference => reference.Handle))
+                RequireReferenceDrawing(drawingId, element, generated, "generated");
+        }
+    }
+
+    private static void RequireReferenceDrawing(DrawingId drawingId, SemanticElement element, CadReference reference, string role)
+    {
+        if (reference.DrawingId == drawingId) return;
+        throw new InvalidOperationException(
+            $"Element '{element.Name}' {role} CAD reference belongs to drawing {reference.DrawingId.Value:D}, not target drawing {drawingId.Value:D}.");
     }
 
     private static void CompleteMutation(ProjectState state, SemanticProject before)

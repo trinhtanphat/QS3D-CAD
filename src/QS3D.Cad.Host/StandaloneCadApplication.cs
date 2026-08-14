@@ -39,8 +39,16 @@ public sealed class StandaloneCadApplication
     {
         var loaded = Store.LoadWithProject(path);
         Documents.Open(loaded.Document);
-        if (loaded.Project is not null) Projects.Attach(loaded.Document, loaded.Project);
-        return loaded.Document;
+        try
+        {
+            if (loaded.Project is not null) Projects.Attach(loaded.Document, loaded.Project);
+            return loaded.Document;
+        }
+        catch
+        {
+            Documents.Close(loaded.Document.Id);
+            throw;
+        }
     }
 
     public bool CloseDocument(DrawingId drawingId) => Documents.Close(drawingId);

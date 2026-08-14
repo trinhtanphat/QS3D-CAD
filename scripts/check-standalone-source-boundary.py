@@ -30,7 +30,7 @@ require(HOST / "StandaloneCadApplication.cs", (
     "SemanticCommands.RegisterAll", "AdvancedReferenceCommands.RegisterAll",
     "XrefReferenceCommands.RegisterAll", "LayoutReferenceCommands.RegisterAll", "PlotReferenceCommands.RegisterAll",
     "StandaloneDocumentManager", "StandaloneCommandCatalog", "OnDocumentOpened", "OnDocumentClosed", "RecordMutation", "ExecuteCommand",
-    "_commands.Execute",
+    "_commands.Execute", "Documents.Close(loaded.Document.Id)",
 ))
 forbid(HOST / "StandaloneCadApplication.cs", ("public CommandRegistry Commands",))
 require(HOST / "StandaloneCommandCatalog.cs", (
@@ -41,8 +41,8 @@ require(HOST / "StandaloneDocumentManager.cs", ("IDocumentManager", "_opened(doc
 forbid(HOST / "BuiltInCommands.cs", ("new UndoCommand", "new RedoCommand", "class UndoCommand", "class RedoCommand"))
 require(HOST / "BuiltInCommands.cs", ("would overflow the finite coordinate range",))
 require(HOST / "CommandLineTokenizer.cs", ("tokenStarted", "index + 1", "tokens.Add(current.ToString())"))
-require(HOST / "StandaloneSemanticWorkspace.cs", ("Detach(DrawingId", "_states.Remove"))
-require(HOST / "StandaloneModelReadinessAnalyzer.cs", ("ORPHAN_HANDLE", "CadTransactionMode.ReadOnly", "ModelReadinessAnalyzer.Analyze"))
+require(HOST / "StandaloneSemanticWorkspace.cs", ("Detach(DrawingId", "_states.Remove", "RequireDrawingAffinity", "not target drawing"))
+require(HOST / "StandaloneModelReadinessAnalyzer.cs", ("ORPHAN_HANDLE", "CAD_REFERENCE_DRAWING_MISMATCH", "CadTransactionMode.ReadOnly", "ModelReadinessAnalyzer.Analyze"))
 require(HOST / "SemanticCommands.cs", ("SemanticAuthoringCommands.RegisterAll", "StandaloneModelReadinessAnalyzer.Analyze"))
 require(HOST / "BootstrapDrawingStore.cs", (
     "Bootstrap drawing JSON is invalid.", "Bootstrap drawing content is invalid.",
@@ -55,7 +55,7 @@ require(HOST / "Qs3dBootstrapPackageStore.cs", (
 ))
 require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "CanLoad", "PublishBackup", "File.Move"))
 require(HOST / "Qs3dBootstrapRecoveryReader.cs", ("RecoveredFromBackup", "PrimaryError", "BackupPath"))
-require(HOST / "StandaloneCadPackageExtensions.cs", ("SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery"))
+require(HOST / "StandaloneCadPackageExtensions.cs", ("SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery", "application.Documents.Close(result.Document.Id)"))
 require(HOST / "CadCapabilityValidation.cs", (
     "Known", "RequireKnown", "unknown flag bits", "At least one CAD capability is required", "BooleanSolids", "Grips",
 ))
@@ -99,6 +99,9 @@ require(TESTS / "CadBackendQualificationEvidenceJsonModuleSmoke.cs", ("RewriteCa
 require(TESTS / "NativeSdkReadinessModuleSmoke.cs", (
     "ConfiguredUnqualified", "IsProductionQualified", "DirectoryMissing", "NotConfigured",
 ))
+require(TESTS / "StandaloneDrawingAffinityModuleSmoke.cs", (
+    "CAD_REFERENCE_DRAWING_MISMATCH", "app.Projects.Attach", "preserve the existing document semantic state",
+))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
@@ -106,7 +109,7 @@ for regression in (
     "Qs3dBootstrapPackageModuleSmoke.cs", "SemanticAuthoringQuantityModuleSmoke.cs",
     "StandaloneParityModuleSmoke.cs", "StandaloneFamilySchemaModuleSmoke.cs",
     "CommandRegistrationModuleSmoke.cs", "DocumentLifecycleCleanupModuleSmoke.cs",
-    "StandaloneOrphanHandleHealthModuleSmoke.cs", "BootstrapDrawingCorruptionModuleSmoke.cs",
+    "StandaloneOrphanHandleHealthModuleSmoke.cs", "StandaloneDrawingAffinityModuleSmoke.cs", "BootstrapDrawingCorruptionModuleSmoke.cs",
     "CommandJournalFailureModuleSmoke.cs", "DerivedCoordinateOverflowModuleSmoke.cs",
     "CommandLineTokenizerModuleSmoke.cs", "NativeSdkReadinessModuleSmoke.cs",
 ):
