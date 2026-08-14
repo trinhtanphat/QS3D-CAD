@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag:
@@ -18,7 +19,7 @@ jobs:
       TAG: v0.1.0-preview.1
       TARGET_SHA: 8eacfd48867227a59470649692038d0373656aaa
     steps:
-      - name: Create immutable preview tag
+      - name: Ensure immutable preview tag
         shell: bash
         run: |
           set -euo pipefail
@@ -29,13 +30,21 @@ jobs:
               exit 1
             fi
             echo "Tag $TAG already points to the validated SHA."
-            exit 0
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$TAG" \
+              -f sha="$TARGET_SHA" >/dev/null
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
+            test "$actual" = "$TARGET_SHA"
+            echo "Created $TAG -> $actual"
           fi
 
-          gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-            -f ref="refs/tags/$TAG" \
-            -f sha="$TARGET_SHA" >/dev/null
-
-          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha')"
-          test "$actual" = "$TARGET_SHA"
-          echo "Created $TAG -> $actual"
+      - name: Dispatch Windows release on exact tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run release-windows.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref "$TAG" \
+            -f confirm_release=RELEASE
+          echo "Dispatched Windows release for $TAG"
