@@ -28,8 +28,12 @@ require(HOST / "StandaloneCadApplication.cs", (
     "BuiltInCommands.RegisterAll", "LayerCommands.RegisterAll", "BlockCommands.RegisterAll",
     "SemanticCommands.RegisterAll", "AdvancedReferenceCommands.RegisterAll",
     "XrefReferenceCommands.RegisterAll", "LayoutReferenceCommands.RegisterAll", "PlotReferenceCommands.RegisterAll",
-    "StandaloneDocumentManager", "OnDocumentOpened", "OnDocumentClosed", "RecordMutation", "ExecuteCommand",
+    "StandaloneDocumentManager", "StandaloneCommandCatalog", "OnDocumentOpened", "OnDocumentClosed", "RecordMutation", "ExecuteCommand",
+    "_commands.Execute",
 ))
+forbid(HOST / "StandaloneCadApplication.cs", ("public CommandRegistry Commands",))
+require(HOST / "StandaloneCommandCatalog.cs", ("CommandRegistry", "Names", "Register", "TryResolve"))
+forbid(HOST / "StandaloneCommandCatalog.cs", ("CommandResult Execute", ".Execute("))
 require(HOST / "StandaloneDocumentManager.cs", ("IDocumentManager", "_opened(document)", "_closed(id)", "InMemoryDocumentManager"))
 forbid(HOST / "BuiltInCommands.cs", ("new UndoCommand", "new RedoCommand", "class UndoCommand", "class RedoCommand"))
 require(HOST / "BuiltInCommands.cs", ("would overflow the finite coordinate range",))
@@ -71,7 +75,7 @@ require(DESKTOP / "MainWindow.xaml", (
 
 require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
 require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
-require(TESTS / "CommandRegistrationModuleSmoke.cs", ("journalCommand", "UNDO", "REDO"))
+require(TESTS / "CommandRegistrationModuleSmoke.cs", ("journalCommand", "UNDO", "REDO", "StandaloneCommandCatalog"))
 require(TESTS / "CommandLineTokenizerModuleSmoke.cs", ("windowsPath", "ExecuteCommand"))
 require(TESTS / "DocumentLifecycleCleanupModuleSmoke.cs", ("app.Documents.Close", "Lifecycle reopened", "reused stale application journal"))
 for regression in (
