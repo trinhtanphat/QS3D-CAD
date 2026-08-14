@@ -17,6 +17,8 @@ public sealed class Qs3dBootstrapPackageStore
     private const string ManifestEntry = "manifest.json";
     private const string SemanticEntry = "semantic-project.json";
     private const string DrawingEntry = "drawing-bootstrap.json";
+    private const string SemanticMediaType = "application/vnd.qs3d.semantic+json";
+    private const string DrawingMediaType = "application/vnd.qs3d.bootstrap+json";
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -57,8 +59,8 @@ public sealed class Qs3dBootstrapPackageStore
                 ProjectId = validatedProject.Id.Value,
                 Payloads = new List<PayloadDto>
                 {
-                    PayloadDto.Create(SemanticEntry, "application/vnd.qs3d.semantic+json", semanticBytes),
-                    PayloadDto.Create(DrawingEntry, "application/vnd.qs3d.bootstrap+json", drawingBytes)
+                    PayloadDto.Create(SemanticEntry, SemanticMediaType, semanticBytes),
+                    PayloadDto.Create(DrawingEntry, DrawingMediaType, drawingBytes)
                 }
             };
             var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
@@ -213,12 +215,26 @@ public sealed class Qs3dBootstrapPackageStore
             if (FormatVersion < 1) throw new InvalidDataException("Manifest format version is invalid.");
             if (ProjectId == Guid.Empty) throw new InvalidDataException("Manifest project identity is missing.");
             if (Payloads is null) throw new InvalidDataException("Manifest payload collection is missing.");
+
+            var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [SemanticEntry] = SemanticMediaType,
+                [DrawingEntry] = DrawingMediaType
+            };
             var names = new HashSet<string>(StringComparer.Ordinal);
             foreach (var payload in Payloads)
             {
                 if (payload is null) throw new InvalidDataException("Manifest payload collection contains null.");
                 payload.Validate();
                 if (!names.Add(payload.Name)) throw new InvalidDataException($"Manifest contains duplicate payload '{payload.Name}'.");
+                if (!expected.TryGetValue(payload.Name, out var mediaType))
+                    throw new InvalidDataException($"Manifest contains unexpected payload '{payload.Name}'.");
+                if (!StringComparer.Ordinal.Equals(payload.MediaType, mediaType))
+                    throw new InvalidDataException($"Manifest payload '{payload.Name}' media type must be '{mediaType}'.");
+            }
+            foreach (var name in expected.Keys)
+            {
+                if (!names.Contains(name)) throw new InvalidDataException($"Manifest payload '{name}' is missing.");
             }
         }
     }
