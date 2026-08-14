@@ -1,13 +1,13 @@
 <Window x:Class="QS3D.Cad.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="QS3D CAD — Standalone Bootstrap" Height="820" Width="1320" MinHeight="640" MinWidth="980">
+        Title="QS3D CAD — Standalone" Height="820" Width="1320" MinHeight="640" MinWidth="980">
   <DockPanel>
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="_File">
         <MenuItem Header="_New" Click="New_Click" />
-        <MenuItem Header="_Open bootstrap..." Click="Open_Click" />
-        <MenuItem Header="_Save bootstrap..." Click="Save_Click" />
+        <MenuItem Header="_Open project..." Click="Open_Click" />
+        <MenuItem Header="_Save project..." Click="Save_Click" />
       </MenuItem>
       <MenuItem Header="_Draw">
         <MenuItem Header="Line" Click="Line_Click" />
@@ -45,7 +45,7 @@
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid>
-          <TextBlock Text="Native viewport adapter not connected yet.&#x0a;Bootstrap entities are listed below for deterministic host development."
+          <TextBlock Text="Native viewport adapter not connected yet.&#x0a;Reference entities are listed below for deterministic host development."
                      Foreground="LightGray" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="20" TextAlignment="Center" />
           <ListBox x:Name="EntityList" Margin="24,86,24,24" Background="#303134" Foreground="White" BorderThickness="0" />
         </Grid>
