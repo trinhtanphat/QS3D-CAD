@@ -17,8 +17,6 @@ public static class BuiltInCommands
         registry.Register(new SelectCommand());
         registry.Register(new EraseCommand());
         registry.Register(new ListCommand());
-        registry.Register(new UndoCommand());
-        registry.Register(new RedoCommand());
     }
 
     private static double Number(string token, string label)
@@ -203,30 +201,6 @@ public static class BuiltInCommands
             foreach (var entity in entities)
                 context.Document.Editor.WriteMessage($"{entity.Handle} {entity.Kind} {entity.Extents.Min} -> {entity.Extents.Max}");
             return CommandResult.Success($"{entities.Count} object(s).");
-        }
-    }
-
-    private sealed class UndoCommand : ICadCommand
-    {
-        public string Name => "UNDO";
-        public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ModifiesDrawing;
-        public CommandResult Execute(CommandContext context)
-        {
-            if (!context.Document.Database.History.CanUndo) return CommandResult.Failure("Nothing to undo.");
-            context.Document.Database.History.Undo();
-            return CommandResult.Success("Undo complete.");
-        }
-    }
-
-    private sealed class RedoCommand : ICadCommand
-    {
-        public string Name => "REDO";
-        public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ModifiesDrawing;
-        public CommandResult Execute(CommandContext context)
-        {
-            if (!context.Document.Database.History.CanRedo) return CommandResult.Failure("Nothing to redo.");
-            context.Document.Database.History.Redo();
-            return CommandResult.Success("Redo complete.");
         }
     }
 }
