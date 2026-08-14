@@ -9,6 +9,7 @@ public sealed class CadBackendQualificationEvidence
         if (string.IsNullOrWhiteSpace(backendId)) throw new ArgumentException("Backend ID must not be blank.", nameof(backendId));
         if (string.IsNullOrWhiteSpace(backendVersion)) throw new ArgumentException("Backend version must not be blank.", nameof(backendVersion));
         if (sourceSha is null || sourceSha.Length != 40 || sourceSha.Any(static c => !Uri.IsHexDigit(c))) throw new ArgumentException("Source SHA must be an exact commit SHA.", nameof(sourceSha));
+        CadCapabilityValidation.RequireKnown(qualifiedCapabilities, nameof(qualifiedCapabilities), allowNone: !passed);
         if (string.IsNullOrWhiteSpace(evidenceId)) throw new ArgumentException("Evidence ID must not be blank.", nameof(evidenceId));
         BackendId = backendId.Trim().ToLowerInvariant();
         BackendVersion = backendVersion.Trim();
