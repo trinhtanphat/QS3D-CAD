@@ -11,12 +11,14 @@ public static class CommandLineTokenizer
         var current = new StringBuilder();
         var quoted = false;
         var escape = false;
+        var tokenStarted = false;
 
         foreach (var c in commandLine)
         {
             if (escape)
             {
                 current.Append(c);
+                tokenStarted = true;
                 escape = false;
                 continue;
             }
@@ -24,34 +26,38 @@ public static class CommandLineTokenizer
             if (c == '\\' && quoted)
             {
                 escape = true;
+                tokenStarted = true;
                 continue;
             }
 
             if (c == '"')
             {
                 quoted = !quoted;
+                tokenStarted = true;
                 continue;
             }
 
             if (char.IsWhiteSpace(c) && !quoted)
             {
-                Flush(tokens, current);
+                Flush(tokens, current, ref tokenStarted);
                 continue;
             }
 
             current.Append(c);
+            tokenStarted = true;
         }
 
         if (escape || quoted)
             throw new FormatException("Unterminated quoted command argument.");
-        Flush(tokens, current);
+        Flush(tokens, current, ref tokenStarted);
         return tokens;
     }
 
-    private static void Flush(List<string> tokens, StringBuilder current)
+    private static void Flush(List<string> tokens, StringBuilder current, ref bool tokenStarted)
     {
-        if (current.Length == 0) return;
+        if (!tokenStarted) return;
         tokens.Add(current.ToString());
         current.Clear();
+        tokenStarted = false;
     }
 }
