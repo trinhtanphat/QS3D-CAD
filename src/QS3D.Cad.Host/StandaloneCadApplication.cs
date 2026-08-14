@@ -82,19 +82,31 @@ public sealed class StandaloneCadApplication
         cancellationToken.ThrowIfCancellationRequested();
         var databaseRevisionBefore = document.Database.Revision;
         var semanticRevisionBefore = Projects.Revision(document);
-        var result = Commands.Execute(tokens[0], new CommandContext(document, tokens.Skip(1), cancellationToken));
-        if (!string.IsNullOrWhiteSpace(result.Message)) document.Editor.WriteMessage(result.Message!);
-        if (!result.Succeeded) return result;
+        CommandResult result;
+        try
+        {
+            result = Commands.Execute(tokens[0], new CommandContext(document, tokens.Skip(1), cancellationToken));
+        }
+        catch
+        {
+            RecordMutation(document, databaseRevisionBefore, semanticRevisionBefore);
+            throw;
+        }
 
+        RecordMutation(document, databaseRevisionBefore, semanticRevisionBefore);
+        if (!string.IsNullOrWhiteSpace(result.Message)) document.Editor.WriteMessage(result.Message!);
+        return result;
+    }
+
+    private void RecordMutation(ICadDocument document, long databaseRevisionBefore, long semanticRevisionBefore)
+    {
         var databaseChanged = document.Database.Revision != databaseRevisionBefore;
         var semanticChanged = Projects.Revision(document) != semanticRevisionBefore;
-        if (databaseChanged || semanticChanged)
-        {
-            var (undo, redo) = EnsureHistory(document.Id);
-            undo.Push(new HistoryEntry(databaseChanged, semanticChanged, document.Database.Revision, Projects.Revision(document)));
-            redo.Clear();
-        }
-        return result;
+        if (!databaseChanged && !semanticChanged) return;
+
+        var (undo, redo) = EnsureHistory(document.Id);
+        undo.Push(new HistoryEntry(databaseChanged, semanticChanged, document.Database.Revision, Projects.Revision(document)));
+        redo.Clear();
     }
 
     private CommandResult Undo(ICadDocument document)
