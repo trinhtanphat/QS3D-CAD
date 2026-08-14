@@ -46,7 +46,7 @@ jobs:
           ./scripts/package-windows.ps1 -SkipValidation
           if ($LASTEXITCODE -ne 0) { throw "Windows installer packaging failed with exit code $LASTEXITCODE." }
           $installer = "artifacts/installer/QS3D-CAD-Setup-win-x64.exe"
-          $checksum = "$installer.sha256"
+          $checksum = "artifacts/installer/QS3D-CAD-Setup-win-x64.exe.sha256"
           if (-not (Test-Path $installer)) { throw "Windows installer was not produced." }
           if (-not (Test-Path $checksum)) { throw "Windows installer checksum was not produced." }
           $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
