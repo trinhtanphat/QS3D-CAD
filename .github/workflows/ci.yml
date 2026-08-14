@@ -24,23 +24,32 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+          ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+          if (-not ($candidates | Where-Object { Test-Path $_ } | Select-Object -First 1)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Failed to install Inno Setup 6." }
+          }
+
       - name: Run authoritative validation
         shell: pwsh
         run: ./scripts/validate.ps1
 
-      - name: Publish self-contained Windows x64 smoke
+      - name: Build Windows x64 installer smoke
         shell: pwsh
         run: |
-          $version = (Get-Content VERSION -Raw).Trim()
-          $out = Join-Path $env:RUNNER_TEMP "qs3d-cad-publish"
-          dotnet publish src/QS3D.Cad.Desktop/QS3D.Cad.Desktop.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:Version=$version `
-            -p:PublishReadyToRun=false `
-            -o $out
-          if ($LASTEXITCODE -ne 0) { throw "Windows x64 publish failed with exit code $LASTEXITCODE." }
-          $exe = Join-Path $out "QS3D.CAD.exe"
-          if (-not (Test-Path $exe)) { throw "Published QS3D.CAD.exe was not produced." }
-          Write-Host "Windows x64 publish PASS: $exe"
+          ./scripts/package-windows.ps1 -SkipValidation
+          if ($LASTEXITCODE -ne 0) { throw "Windows installer packaging failed with exit code $LASTEXITCODE." }
+          $installer = "artifacts/installer/QS3D-CAD-Setup-win-x64.exe"
+          $checksum = "$installer.sha256"
+          if (-not (Test-Path $installer)) { throw "Windows installer was not produced." }
+          if (-not (Test-Path $checksum)) { throw "Windows installer checksum was not produced." }
+          $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
+          $declared = ((Get-Content $checksum -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+          if ($declared -ne $actual) { throw "Windows installer checksum sidecar does not match the installer." }
+          Write-Host "Windows x64 installer PASS: $installer"

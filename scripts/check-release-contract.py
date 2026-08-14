@@ -56,15 +56,18 @@ def main() -> int:
         ("ArchitecturesInstallIn64BitMode=x64compatible", "installer must use the 64-bit installation lane"),
         ("UninstallDisplayIcon={app}\\QS3D.CAD.exe", "installer uninstall identity must reference QS3D.CAD.exe"),
         ("VersionInfoVersion={#FileVersion}", "installer must keep numeric PE file version separate from preview SemVer"),
+        ("VersionInfoProductVersion={#FileVersion}", "installer product-version metadata must stay numeric for Inno Setup"),
     ):
         require(token in installer, description, failures)
+    require("VersionInfoProductVersion={#AppVersion}" not in installer, "preview SemVer must not be written into numeric installer product-version metadata", failures)
 
     ci = read(".github/workflows/ci.yml")
     for token, description in (
         ("submodules: recursive", "CI must checkout the exact Platform gitlink recursively"),
         ("./scripts/validate.ps1", "CI must run authoritative standalone validation"),
-        ("--self-contained true", "CI must exercise self-contained Windows publication"),
-        ("QS3D.CAD.exe", "CI must verify the published executable"),
+        ("Install Inno Setup 6", "CI must provision the actual Windows installer compiler"),
+        ("./scripts/package-windows.ps1 -SkipValidation", "CI must compile the real installer after authoritative validation"),
+        ("QS3D-CAD-Setup-win-x64.exe.sha256", "CI must verify installer checksum evidence"),
     ):
         require(token in ci, description, failures)
 

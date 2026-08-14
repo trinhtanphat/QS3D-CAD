@@ -37,7 +37,7 @@ VersionInfoVersion={#FileVersion}
 VersionInfoCompany=QS3D
 VersionInfoDescription=QS3D CAD Windows Installer
 VersionInfoProductName=QS3D CAD
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#FileVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
