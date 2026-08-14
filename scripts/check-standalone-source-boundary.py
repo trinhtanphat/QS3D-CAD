@@ -54,7 +54,9 @@ require(HOST / "Qs3dBootstrapPackageStore.cs", (
     "JsonException", "QS3D package manifest is invalid.", "Manifest contains unexpected payload", "media type must be",
 ))
 require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "CanLoad", "PublishBackup", "File.Move"))
-require(HOST / "Qs3dBootstrapRecoveryReader.cs", ("RecoveredFromBackup", "PrimaryError", "BackupPath"))
+require(HOST / "Qs3dBootstrapRecoveryReader.cs", (
+    "Qs3dBootstrapRecoveryLoadResult", "false, null, primary", "true, primaryError.Message, backup", "BackupPath",
+))
 require(HOST / "StandaloneCadPackageExtensions.cs", ("SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery", "application.Documents.Close(result.Document.Id)"))
 require(HOST / "CadCapabilityValidation.cs", (
     "Known", "RequireKnown", "unknown flag bits", "At least one CAD capability is required", "BooleanSolids", "Grips",

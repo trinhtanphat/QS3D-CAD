@@ -49,6 +49,6 @@ public static class CadBackendQualificationEvidenceJson
         return result;
     }
 
-    private sealed class FileDto { public int Schema { get; set; } public List<ItemDto?>? Items { get; set; } }
+    private sealed class FileDto { public int Schema { get; set; } public List<ItemDto>? Items { get; set; } }
     private sealed record ItemDto(string? BackendId, string? BackendVersion, string? SourceSha, long QualifiedCapabilities, DateTimeOffset QualifiedAt, string? EvidenceId, bool Passed);
 }
