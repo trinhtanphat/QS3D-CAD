@@ -74,7 +74,7 @@ public static class SemanticCommands
         public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ReadOnly;
         public CommandResult Execute(CommandContext context)
         {
-            var report = ModelReadinessAnalyzer.Analyze(_workspace.Ensure(context.Document));
+            var report = StandaloneModelReadinessAnalyzer.Analyze(context.Document, _workspace.Ensure(context.Document));
             foreach (var finding in report.Findings)
                 context.Document.Editor.WriteMessage($"{finding.Severity} {finding.Code}: {finding.Message}");
             return report.IsReady
