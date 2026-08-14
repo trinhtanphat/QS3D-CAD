@@ -73,9 +73,8 @@ def main() -> int:
 
     release = read(".github/workflows/release-windows.yml")
     for token, description in (
-        ("source_ref:", "manual release must declare a source ref input"),
         ("source_sha:", "manual release must declare an exact source SHA input"),
-        ("ref: ${{ inputs.source_ref || github.ref }}", "release checkout must use the selected source ref while workflow definition stays current"),
+        ("ref: ${{ inputs.source_sha || github.ref }}", "release checkout must bind directly to the selected source commit"),
         ("git rev-parse HEAD", "release must derive source identity from the actual checkout"),
         ("RELEASE_SOURCE_INPUT", "manual release must compare requested source SHA with checkout"),
         ("source_sha=$sourceSha", "release must export exact checked-out source identity"),
@@ -93,14 +92,13 @@ def main() -> int:
 
     bootstrap = read(".github/workflows/bootstrap-preview-tag.yml")
     for token, description in (
-        ("RELEASE_REF: release/v0.1.0-preview.2", "preview bootstrap must use the dedicated validated release branch"),
-        ("TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d", "preview bootstrap must bind release source to validated CAD SHA"),
-        ("git/ref/heads/$RELEASE_REF", "bootstrap must read back the release branch before dispatch"),
+        ("TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d", "preview bootstrap must bind directly to validated CAD SHA"),
+        ("commits/$TARGET_SHA", "bootstrap must resolve the exact source commit before dispatch"),
         ("--ref main", "bootstrap must load the current hardened release workflow definition from main"),
-        ('-f "source_ref=$RELEASE_REF"', "bootstrap must pass the validated source ref separately"),
-        ('-f "source_sha=$TARGET_SHA"', "bootstrap must pass the exact validated source SHA separately"),
+        ('-f "source_sha=$TARGET_SHA"', "bootstrap must pass the exact source SHA separately from workflow definition ref"),
     ):
         require(token in bootstrap, description, failures)
+    require("release/v0.1.0-preview.2" not in bootstrap, "bootstrap must not depend on a mutable release branch", failures)
 
     if failures:
         print("QS3D CAD release contract FAILED")

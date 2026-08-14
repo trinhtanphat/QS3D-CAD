@@ -7,12 +7,8 @@ on:
         description: "Type RELEASE to publish the VERSION at the selected source"
         required: true
         type: string
-      source_ref:
-        description: "Release source branch/ref to checkout"
-        required: true
-        type: string
       source_sha:
-        description: "Exact 40-character source commit SHA expected after checkout"
+        description: "Exact 40-character source commit SHA to checkout and release"
         required: true
         type: string
   push:
@@ -30,7 +26,7 @@ jobs:
       - name: Checkout exact release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_ref || github.ref }}
+          ref: ${{ inputs.source_sha || github.ref }}
           submodules: recursive
           fetch-depth: 0
 
@@ -56,7 +52,6 @@ jobs:
         shell: pwsh
         env:
           RELEASE_CONFIRMATION: ${{ inputs.confirm_release }}
-          RELEASE_SOURCE_REF: ${{ inputs.source_ref }}
           RELEASE_SOURCE_INPUT: ${{ inputs.source_sha }}
         run: |
           $sourceSha = (git rev-parse HEAD).Trim().ToLowerInvariant()
@@ -79,9 +74,6 @@ jobs:
           elseif ($env:GITHUB_EVENT_NAME -eq 'workflow_dispatch') {
             if ($env:RELEASE_CONFIRMATION -ne 'RELEASE') {
               throw "Manual release requires confirm_release=RELEASE."
-            }
-            if ([string]::IsNullOrWhiteSpace($env:RELEASE_SOURCE_REF)) {
-              throw "Manual release requires source_ref."
             }
             if ($env:RELEASE_SOURCE_INPUT -notmatch '^[0-9a-f]{40}$') {
               throw "Manual release requires an exact lowercase 40-character source_sha."

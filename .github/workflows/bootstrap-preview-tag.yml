@@ -16,19 +16,22 @@ jobs:
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_REF: release/v0.1.0-preview.2
       TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d
     steps:
-      - name: Verify validated release branch
+      - name: Verify validated source commit
         shell: bash
         run: |
           set -euo pipefail
-          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$RELEASE_REF" --jq '.object.sha')"
-          if [[ "$actual" != "$TARGET_SHA" ]]; then
-            echo "Release branch $RELEASE_REF points to $actual, expected validated SHA $TARGET_SHA" >&2
+          if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "TARGET_SHA must be an exact 40-character lowercase commit SHA." >&2
             exit 1
           fi
-          echo "Validated release branch: $RELEASE_REF -> $actual"
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA" --jq '.sha')"
+          if [[ "$actual" != "$TARGET_SHA" ]]; then
+            echo "Resolved source $actual does not match validated SHA $TARGET_SHA" >&2
+            exit 1
+          fi
+          echo "Validated exact release source: $actual"
 
       - name: Dispatch current release workflow for exact source
         shell: bash
@@ -38,6 +41,5 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --ref main \
             -f confirm_release=RELEASE \
-            -f "source_ref=$RELEASE_REF" \
             -f "source_sha=$TARGET_SHA"
-          echo "Dispatched current release workflow for $RELEASE_REF -> $TARGET_SHA"
+          echo "Dispatched current release workflow for exact source $TARGET_SHA"
