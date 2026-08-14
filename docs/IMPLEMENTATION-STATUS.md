@@ -38,7 +38,8 @@ This container is real project file I/O, but its drawing payload remains the ref
 
 - CAD exact source `14b0d374769cb571bb5150654ea8f0e209ea658d` passed QS3D CAD CI #17, run `31778681150`, including authoritative validation and real Inno Setup installer/checksum smoke.
 - The released source `a3c0e6d098f02c8cfbb594020b20930491339d59` is three commits ahead of `14b0d374...`; the delta changes only release/bootstrap workflow files. Release run #5 independently reran authoritative validation and Windows packaging successfully on exact `a3c0e6d...`.
-- CAD current main `b4e2baf9f770849da12a552b15d66d516c7c4a06` passed QS3D CAD CI #23, run `31779472462`, including the real-installer gate.
+- CAD release-workflow checkpoint `b4e2baf9f770849da12a552b15d66d516c7c4a06` passed QS3D CAD CI #23, run `31779472462`, including the real-installer gate.
+- CAD provenance-cleanup checkpoint `d0fb075efe475b041b001830a8b18fcf86c0ad2e` passed QS3D CAD CI #24, run `31779833493`, including authoritative validation and real Inno Setup installer/checksum smoke.
 
 ## Published Windows preview
 
