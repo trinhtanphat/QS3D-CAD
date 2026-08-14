@@ -61,9 +61,13 @@ forbid(CLI / "Program.cs", ("string.Join(' ', args)", 'string.Join(" ", args)'))
 
 require(DESKTOP / "MainWindow.xaml.cs", (
     "SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery", "RecoveredFromBackup", "*.qs3d",
+    "DocumentList_SelectionChanged", "Activate(document.Id)", "_refreshingUi",
 ))
 forbid(DESKTOP / "MainWindow.xaml.cs", ("SaveBootstrap(", "OpenBootstrap("))
-require(DESKTOP / "MainWindow.xaml", ("_Open project...", "_Save project...", "QS3D CAD — Standalone"))
+require(DESKTOP / "MainWindow.xaml", (
+    "_Open project...", "_Save project...", "QS3D CAD — Standalone",
+    'DisplayMemberPath="Name"', 'SelectionChanged="DocumentList_SelectionChanged"',
+))
 
 require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
 require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
