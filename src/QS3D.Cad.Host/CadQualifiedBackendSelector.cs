@@ -21,6 +21,16 @@ public static class CadQualifiedBackendSelector
         if (backends.Any(static item => item is null)) throw new ArgumentException("Backend candidates must not contain null entries.", nameof(candidates));
         if (evidenceItems.Any(static item => item is null)) throw new ArgumentException("Qualification evidence must not contain null entries.", nameof(evidence));
 
+        var duplicateBackend = backends.GroupBy(static item => item.Id, StringComparer.Ordinal)
+            .FirstOrDefault(static group => group.Count() > 1);
+        if (duplicateBackend is not null)
+            throw new InvalidOperationException($"Duplicate CAD backend ID '{duplicateBackend.Key}' makes production qualification ambiguous.");
+
+        var duplicateEvidence = evidenceItems.GroupBy(static item => item.EvidenceId, StringComparer.Ordinal)
+            .FirstOrDefault(static group => group.Count() > 1);
+        if (duplicateEvidence is not null)
+            throw new InvalidOperationException($"Duplicate CAD qualification evidence ID '{duplicateEvidence.Key}' makes production qualification ambiguous.");
+
         var eligible = backends
             .Where(static backend => backend.IsAvailable && backend.Kind == CadBackendKind.Native)
             .Where(backend => (backend.Capabilities & requiredCapabilities) == requiredCapabilities)
