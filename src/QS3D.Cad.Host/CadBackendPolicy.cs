@@ -22,6 +22,8 @@ public sealed class CadBackendDescriptor
     {
         if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("Backend ID must not be blank.", nameof(id));
         if (string.IsNullOrWhiteSpace(displayName)) throw new ArgumentException("Backend display name must not be blank.", nameof(displayName));
+        if (!Enum.IsDefined(kind)) throw new ArgumentOutOfRangeException(nameof(kind));
+        CadCapabilityValidation.RequireKnown(capabilities, nameof(capabilities), allowNone: true);
         if (priority < 0) throw new ArgumentOutOfRangeException(nameof(priority));
         if (!isAvailable && string.IsNullOrWhiteSpace(unavailableReason))
             throw new ArgumentException("Unavailable backend must provide a reason.", nameof(unavailableReason));
@@ -62,6 +64,7 @@ public sealed class CadBackendSelectionPolicy
 {
     public CadBackendSelectionPolicy(CadCapabilities requiredCapabilities, bool requireNative)
     {
+        CadCapabilityValidation.RequireKnown(requiredCapabilities, nameof(requiredCapabilities), allowNone: !requireNative);
         RequiredCapabilities = requiredCapabilities;
         RequireNative = requireNative;
     }
