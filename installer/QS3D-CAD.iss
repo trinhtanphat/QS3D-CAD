@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.0-preview.1"
+  #define AppVersion "0.1.0-preview.2"
 #endif
 #ifndef FileVersion
-  #define FileVersion "0.1.0.1"
+  #define FileVersion "0.1.0.2"
 #endif
 #ifndef SourceDir
   #define SourceDir "..\artifacts\publish\win-x64"
@@ -34,10 +34,12 @@ CloseApplications=yes
 RestartApplications=no
 UninstallDisplayIcon={app}\QS3D.CAD.exe
 VersionInfoVersion={#FileVersion}
+VersionInfoTextVersion={#AppVersion}
 VersionInfoCompany=QS3D
 VersionInfoDescription=QS3D CAD Windows Installer
 VersionInfoProductName=QS3D CAD
 VersionInfoProductVersion={#FileVersion}
+VersionInfoProductTextVersion={#AppVersion}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
