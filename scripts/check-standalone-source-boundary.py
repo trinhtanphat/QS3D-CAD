@@ -32,7 +32,7 @@ require(HOST / "StandaloneCadApplication.cs", (
     "_commands.Execute",
 ))
 forbid(HOST / "StandaloneCadApplication.cs", ("public CommandRegistry Commands",))
-require(HOST / "StandaloneCommandCatalog.cs", ("CommandRegistry", "Names", "Register", "TryResolve"))
+require(HOST / "StandaloneCommandCatalog.cs", ("CommandRegistry", "Names", "Register", "TryResolve", "ReservedApplicationCommands"))
 forbid(HOST / "StandaloneCommandCatalog.cs", ("CommandResult Execute", ".Execute("))
 require(HOST / "StandaloneDocumentManager.cs", ("IDocumentManager", "_opened(document)", "_closed(id)", "InMemoryDocumentManager"))
 forbid(HOST / "BuiltInCommands.cs", ("new UndoCommand", "new RedoCommand", "class UndoCommand", "class RedoCommand"))
@@ -53,9 +53,10 @@ require(HOST / "Qs3dBootstrapPackageStore.cs", (
 require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "CanLoad", "PublishBackup", "File.Move"))
 require(HOST / "Qs3dBootstrapRecoveryReader.cs", ("RecoveredFromBackup", "PrimaryError", "BackupPath"))
 require(HOST / "StandaloneCadPackageExtensions.cs", ("SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery"))
-require(HOST / "CadBackendPolicy.cs", ("CadBackendKind.Native", "RequireNative", "Production", "Version"))
-require(HOST / "CadBackendEvidence.cs", ("CadBackendQualificationEvidence", "BackendVersion", "SourceSha", "QualifiedCapabilities", "Passed"))
-require(HOST / "CadQualifiedBackendSelector.cs", ("SelectProduction", "CadBackendKind.Native", "BackendVersion", "SourceSha", "QualifiedCapabilities", "Duplicate CAD backend ID", "Duplicate CAD qualification evidence ID"))
+require(HOST / "CadCapabilityValidation.cs", ("Known", "RequireKnown", "unknown flag bits", "At least one CAD capability is required"))
+require(HOST / "CadBackendPolicy.cs", ("CadBackendKind.Native", "RequireNative", "Production", "Version", "CadCapabilityValidation.RequireKnown"))
+require(HOST / "CadBackendEvidence.cs", ("CadBackendQualificationEvidence", "BackendVersion", "SourceSha", "QualifiedCapabilities", "Passed", "CadCapabilityValidation.RequireKnown"))
+require(HOST / "CadQualifiedBackendSelector.cs", ("SelectProduction", "CadBackendKind.Native", "BackendVersion", "SourceSha", "QualifiedCapabilities", "Duplicate CAD backend ID", "Duplicate CAD qualification evidence ID", "allowNone: false"))
 require(HOST / "CadBackendQualificationEvidenceJson.cs", ("Serialize", "Deserialize", "BackendVersion", "SourceSha"))
 for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotReferenceCommands.cs"):
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
@@ -75,9 +76,10 @@ require(DESKTOP / "MainWindow.xaml", (
 
 require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
 require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
-require(TESTS / "CommandRegistrationModuleSmoke.cs", ("journalCommand", "UNDO", "REDO", "StandaloneCommandCatalog"))
+require(TESTS / "CommandRegistrationModuleSmoke.cs", ("journalCommand", "UNDO", "REDO", "StandaloneCommandCatalog", "ReservedCommand"))
 require(TESTS / "CommandLineTokenizerModuleSmoke.cs", ("windowsPath", "ExecuteCommand"))
 require(TESTS / "DocumentLifecycleCleanupModuleSmoke.cs", ("app.Documents.Close", "Lifecycle reopened", "reused stale application journal"))
+require(TESTS / "CadBackendQualificationEvidenceJsonModuleSmoke.cs", ("RewriteCapabilities", "1L << 20"))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
