@@ -26,6 +26,9 @@ Invoke-CheckedNative 'QS3D-CAD source boundary' 'python' @('scripts/check-standa
 Write-Host '== QS3D-CAD release contract =='
 Invoke-CheckedNative 'QS3D-CAD release contract' 'python' @('scripts/check-release-contract.py')
 
+Write-Host '== QS3D-CAD desktop UI contract =='
+Invoke-CheckedNative 'QS3D-CAD desktop UI contract' 'python' @('scripts/check-desktop-ui-contract.py')
+
 Write-Host '== Initialize pinned QS3D-Platform =='
 Invoke-CheckedNative 'Initialize pinned QS3D-Platform' 'git' @('submodule', 'update', '--init', '--recursive')
 
