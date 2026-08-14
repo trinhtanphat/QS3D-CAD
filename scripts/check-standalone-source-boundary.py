@@ -32,7 +32,9 @@ require(HOST / "StandaloneCadApplication.cs", (
     "_commands.Execute",
 ))
 forbid(HOST / "StandaloneCadApplication.cs", ("public CommandRegistry Commands",))
-require(HOST / "StandaloneCommandCatalog.cs", ("CommandRegistry", "Names", "Register", "TryResolve", "ReservedApplicationCommands"))
+require(HOST / "StandaloneCommandCatalog.cs", (
+    "CommandRegistry", "Names", "Register", "Contains", "ReservedApplicationCommands", "string.IsNullOrWhiteSpace",
+))
 forbid(HOST / "StandaloneCommandCatalog.cs", ("CommandResult Execute", ".Execute("))
 require(HOST / "StandaloneDocumentManager.cs", ("IDocumentManager", "_opened(document)", "_closed(id)", "InMemoryDocumentManager"))
 forbid(HOST / "BuiltInCommands.cs", ("new UndoCommand", "new RedoCommand", "class UndoCommand", "class RedoCommand"))
@@ -76,7 +78,10 @@ require(DESKTOP / "MainWindow.xaml", (
 
 require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
 require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
-require(TESTS / "CommandRegistrationModuleSmoke.cs", ("journalCommand", "UNDO", "REDO", "StandaloneCommandCatalog", "ReservedCommand"))
+require(TESTS / "CommandRegistrationModuleSmoke.cs", (
+    "journalCommand", "UNDO", "REDO", "StandaloneCommandCatalog", "TestCommand", "Commands.Contains", "TryResolve",
+))
+forbid(TESTS / "CommandRegistrationModuleSmoke.cs", ("Commands.TryResolve", "ReservedCommand"))
 require(TESTS / "CommandLineTokenizerModuleSmoke.cs", ("windowsPath", "ExecuteCommand"))
 require(TESTS / "DocumentLifecycleCleanupModuleSmoke.cs", ("app.Documents.Close", "Lifecycle reopened", "reused stale application journal"))
 require(TESTS / "CadBackendQualificationEvidenceJsonModuleSmoke.cs", ("RewriteCapabilities", "1L << 20"))
