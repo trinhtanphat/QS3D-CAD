@@ -23,6 +23,10 @@ require(HOST / "StandaloneCadApplication.cs", (
 require(HOST / "StandaloneSemanticWorkspace.cs", ("Detach(DrawingId", "_states.Remove"))
 require(HOST / "StandaloneModelReadinessAnalyzer.cs", ("ORPHAN_HANDLE", "CadTransactionMode.ReadOnly", "ModelReadinessAnalyzer.Analyze"))
 require(HOST / "SemanticCommands.cs", ("SemanticAuthoringCommands.RegisterAll", "StandaloneModelReadinessAnalyzer.Analyze"))
+require(HOST / "BootstrapDrawingStore.cs", (
+    "Bootstrap drawing JSON is invalid.", "Bootstrap drawing content is invalid.",
+    "Entity collection contains null.", "Semantic element collection contains null.",
+))
 require(HOST / "Qs3dBootstrapPackageStore.cs", (
     "manifest.json", "semantic-project.json", "drawing-bootstrap.json", "MaxPackageBytes", "MaxPayloadBytes",
     "SHA256.HashData", "CryptographicOperations.FixedTimeEquals", "duplicate entry", "missing or unexpected entries",
@@ -45,7 +49,7 @@ for regression in (
     "Qs3dBootstrapPackageModuleSmoke.cs", "SemanticAuthoringQuantityModuleSmoke.cs",
     "StandaloneParityModuleSmoke.cs", "StandaloneFamilySchemaModuleSmoke.cs",
     "CommandRegistrationModuleSmoke.cs", "DocumentLifecycleCleanupModuleSmoke.cs",
-    "StandaloneOrphanHandleHealthModuleSmoke.cs",
+    "StandaloneOrphanHandleHealthModuleSmoke.cs", "BootstrapDrawingCorruptionModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
