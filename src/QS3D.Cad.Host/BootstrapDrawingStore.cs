@@ -69,8 +69,18 @@ public sealed class BootstrapDrawingStore
         var file = new FileInfo(path);
         if (!file.Exists) throw new FileNotFoundException("Bootstrap drawing was not found.", path);
         if (file.Length > MaxBytes) throw new InvalidDataException("Bootstrap drawing exceeds the configured size limit.");
-        var dto = JsonSerializer.Deserialize<DrawingDto>(File.ReadAllText(path), JsonOptions)
-            ?? throw new InvalidDataException("Bootstrap drawing is empty or invalid JSON.");
+
+        DrawingDto dto;
+        try
+        {
+            dto = JsonSerializer.Deserialize<DrawingDto>(File.ReadAllText(path), JsonOptions)
+                ?? throw new InvalidDataException("Bootstrap drawing is empty or invalid JSON.");
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            throw new InvalidDataException("Bootstrap drawing JSON is invalid.", ex);
+        }
+
         if (dto.Schema < MinimumReadableSchema || dto.Schema > CurrentSchema)
             throw new InvalidDataException($"Unsupported bootstrap schema {dto.Schema}.");
         if (dto.DrawingId == Guid.Empty) throw new InvalidDataException("Drawing ID is missing.");
@@ -81,14 +91,25 @@ public sealed class BootstrapDrawingStore
         if (dto.Schema >= 4 && dto.Blocks is null)
             throw new InvalidDataException("Block definition collection is missing from bootstrap drawing.");
 
-        var entities = dto.Entities.Select(FromEntityDto).ToArray();
-        var layers = dto.Schema >= 3 ? dto.Layers!.Select(FromLayerDto).ToArray() : null;
-        var blocks = dto.Schema >= 4 ? dto.Blocks!.Select(FromBlockDto).ToArray() : null;
-        var currentLayer = dto.Schema >= 3 ? dto.CurrentLayerName : null;
-        var database = new InMemoryCadDatabase(entities, layers, currentLayer, blocks);
-        var document = new InMemoryCadDocument(new DrawingId(dto.DrawingId), dto.Name, database);
-        var project = dto.Schema >= 2 && dto.SemanticProject is not null ? FromSemanticProjectDto(dto.SemanticProject) : null;
-        return new BootstrapLoadResult(document, project);
+        try
+        {
+            var entities = dto.Entities.Select(FromEntityDto).ToArray();
+            var layers = dto.Schema >= 3 ? dto.Layers!.Select(FromLayerDto).ToArray() : null;
+            var blocks = dto.Schema >= 4 ? dto.Blocks!.Select(FromBlockDto).ToArray() : null;
+            var currentLayer = dto.Schema >= 3 ? dto.CurrentLayerName : null;
+            var database = new InMemoryCadDatabase(entities, layers, currentLayer, blocks);
+            var document = new InMemoryCadDocument(new DrawingId(dto.DrawingId), dto.Name, database);
+            var project = dto.Schema >= 2 && dto.SemanticProject is not null ? FromSemanticProjectDto(dto.SemanticProject) : null;
+            return new BootstrapLoadResult(document, project);
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is ArgumentException or FormatException or OverflowException or InvalidOperationException)
+        {
+            throw new InvalidDataException("Bootstrap drawing content is invalid.", ex);
+        }
     }
 
     private static EntityDto ToEntityDto(CadEntitySnapshot entity) => new()
@@ -101,8 +122,9 @@ public sealed class BootstrapDrawingStore
         LayerName = entity.LayerName
     };
 
-    private static CadEntitySnapshot FromEntityDto(EntityDto dto)
+    private static CadEntitySnapshot FromEntityDto(EntityDto? dto)
     {
+        if (dto is null) throw new InvalidDataException("Entity collection contains null.");
         if (string.IsNullOrWhiteSpace(dto.Handle)) throw new InvalidDataException("Entity handle is missing.");
         if (!TryKind(dto.Kind, out var kind)) throw new InvalidDataException($"Unsupported entity kind '{dto.Kind}'.");
         try
@@ -128,8 +150,9 @@ public sealed class BootstrapDrawingStore
         IsLocked = layer.IsLocked
     };
 
-    private static CadLayerSnapshot FromLayerDto(LayerDto dto)
+    private static CadLayerSnapshot FromLayerDto(LayerDto? dto)
     {
+        if (dto is null) throw new InvalidDataException("Layer collection contains null.");
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new InvalidDataException("Layer name is missing.");
         return new CadLayerSnapshot(dto.Name, dto.IsOn, dto.IsFrozen, dto.IsLocked);
     }
@@ -141,8 +164,9 @@ public sealed class BootstrapDrawingStore
         Entities = block.Entities.Select(ToDraftDto).ToList()
     };
 
-    private static CadBlockDefinitionSnapshot FromBlockDto(BlockDto dto)
+    private static CadBlockDefinitionSnapshot FromBlockDto(BlockDto? dto)
     {
+        if (dto is null) throw new InvalidDataException("Block definition collection contains null.");
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new InvalidDataException("Block name is missing.");
         if (dto.BasePoint is not { Length: 3 }) throw new InvalidDataException($"Block '{dto.Name}' has an invalid base point.");
         if (dto.Entities is null || dto.Entities.Count == 0) throw new InvalidDataException($"Block '{dto.Name}' has no entities.");
@@ -152,6 +176,10 @@ public sealed class BootstrapDrawingStore
                 dto.Name,
                 new Point3(dto.BasePoint[0], dto.BasePoint[1], dto.BasePoint[2]),
                 dto.Entities.Select(FromDraftDto).ToArray());
+        }
+        catch (InvalidDataException)
+        {
+            throw;
         }
         catch (Exception ex) when (ex is ArgumentException or FormatException or OverflowException)
         {
@@ -168,8 +196,9 @@ public sealed class BootstrapDrawingStore
         LayerName = entity.LayerName
     };
 
-    private static CadEntityDraft FromDraftDto(EntityDraftDto dto)
+    private static CadEntityDraft FromDraftDto(EntityDraftDto? dto)
     {
+        if (dto is null) throw new InvalidDataException("Block entity collection contains null.");
         if (!TryKind(dto.Kind, out var kind)) throw new InvalidDataException($"Unsupported block entity kind '{dto.Kind}'.");
         return new CadEntityDraft(
             kind,
@@ -218,8 +247,9 @@ public sealed class BootstrapDrawingStore
         Handle = reference.Handle.Value
     };
 
-    private static SemanticProject FromSemanticProjectDto(SemanticProjectDto dto)
+    private static SemanticProject FromSemanticProjectDto(SemanticProjectDto? dto)
     {
+        if (dto is null) throw new InvalidDataException("Semantic project is null.");
         if (dto.ProjectId == Guid.Empty) throw new InvalidDataException("Semantic project ID is missing.");
         if (string.IsNullOrWhiteSpace(dto.Name)) throw new InvalidDataException("Semantic project name is missing.");
         if (dto.Floors is null || dto.Zones is null || dto.Families is null || dto.Elements is null)
@@ -229,22 +259,26 @@ public sealed class BootstrapDrawingStore
             var project = new SemanticProject(new ProjectId(dto.ProjectId), dto.Name);
             foreach (var floor in dto.Floors)
             {
-                if (floor.Id == Guid.Empty || string.IsNullOrWhiteSpace(floor.Name)) throw new InvalidDataException("Semantic floor is invalid.");
+                if (floor is null || floor.Id == Guid.Empty || string.IsNullOrWhiteSpace(floor.Name)) throw new InvalidDataException("Semantic floor is invalid.");
                 project.AddFloor(new Floor(new FloorId(floor.Id), floor.Name, floor.ElevationM));
             }
             foreach (var zone in dto.Zones)
             {
-                if (zone.Id == Guid.Empty || string.IsNullOrWhiteSpace(zone.Name)) throw new InvalidDataException("Semantic zone is invalid.");
+                if (zone is null || zone.Id == Guid.Empty || string.IsNullOrWhiteSpace(zone.Name)) throw new InvalidDataException("Semantic zone is invalid.");
                 project.AddZone(new Zone(new ZoneId(zone.Id), zone.Name));
             }
             foreach (var family in dto.Families)
             {
-                if (family.Id == Guid.Empty || string.IsNullOrWhiteSpace(family.Name) || !Enum.TryParse<SemanticElementKind>(family.Kind, false, out var kind) || kind == SemanticElementKind.Unknown)
+                if (family is null || family.Id == Guid.Empty || string.IsNullOrWhiteSpace(family.Name) || !Enum.TryParse<SemanticElementKind>(family.Kind, false, out var kind) || kind == SemanticElementKind.Unknown)
                     throw new InvalidDataException("Semantic family is invalid.");
                 project.AddFamily(new Family(new FamilyId(family.Id), kind, family.Name));
             }
             foreach (var element in dto.Elements) project.AddElement(FromSemanticElementDto(element));
             return project;
+        }
+        catch (InvalidDataException)
+        {
+            throw;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException or OverflowException)
         {
@@ -252,8 +286,9 @@ public sealed class BootstrapDrawingStore
         }
     }
 
-    private static SemanticElement FromSemanticElementDto(SemanticElementDto dto)
+    private static SemanticElement FromSemanticElementDto(SemanticElementDto? dto)
     {
+        if (dto is null) throw new InvalidDataException("Semantic element collection contains null.");
         if (dto.Id == Guid.Empty || dto.FamilyId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Name))
             throw new InvalidDataException("Semantic element identity is invalid.");
         if (!Enum.TryParse<SemanticElementKind>(dto.Kind, false, out var kind) || kind == SemanticElementKind.Unknown)
@@ -267,21 +302,29 @@ public sealed class BootstrapDrawingStore
         }
         if (dto.Properties is not null)
         {
-            foreach (var property in dto.Properties) element.SetProperty(property.Key, property.Value);
+            foreach (var property in dto.Properties)
+            {
+                if (property.Value is null) throw new InvalidDataException($"Semantic property '{property.Key}' has a null value.");
+                element.SetProperty(property.Key, property.Value);
+            }
         }
         return element;
     }
 
-    private static CadReference FromReferenceDto(CadReferenceDto dto)
+    private static CadReference FromReferenceDto(CadReferenceDto? dto)
     {
-        if (dto.DrawingId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Handle)) throw new InvalidDataException("CAD reference is invalid.");
+        if (dto is null || dto.DrawingId == Guid.Empty || string.IsNullOrWhiteSpace(dto.Handle)) throw new InvalidDataException("CAD reference is invalid.");
         return new CadReference(new DrawingId(dto.DrawingId), new CadHandle(dto.Handle));
     }
 
     private static Dictionary<string, string> CloneProperties(IReadOnlyDictionary<string, string> source)
     {
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var pair in source) result.Add(pair.Key, pair.Value);
+        foreach (var pair in source)
+        {
+            if (pair.Value is null) throw new InvalidDataException($"Property '{pair.Key}' has a null value.");
+            result.Add(pair.Key, pair.Value);
+        }
         return result;
     }
 
