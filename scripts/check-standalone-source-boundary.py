@@ -3,6 +3,7 @@ from __future__ import annotations
 import pathlib, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 HOST = ROOT / "src" / "QS3D.Cad.Host"
+NATIVE = ROOT / "src" / "QS3D.Cad.Native.Oda.Bootstrap"
 CLI = ROOT / "src" / "QS3D.Cad.Cli"
 DESKTOP = ROOT / "src" / "QS3D.Cad.Desktop"
 TESTS = ROOT / "tests" / "QS3D.Cad.SmokeTests"
@@ -66,6 +67,10 @@ require(HOST / "CadBackendQualificationEvidenceJson.cs", ("Serialize", "Deserial
 for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotReferenceCommands.cs"):
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
 
+require(NATIVE / "NativeSdkReadiness.cs", (
+    "ConfiguredUnqualified", "IsProductionQualified => false", "QS3D_ODA_SDK_DIR", "Directory.Exists",
+))
+
 require(CLI / "Program.cs", ("ExecuteCommand(args[0], args.Skip(1))", "messageCursor", "app.Commands.Names"))
 forbid(CLI / "Program.cs", ("string.Join(' ', args)", 'string.Join(" ", args)'))
 
@@ -79,7 +84,9 @@ require(DESKTOP / "MainWindow.xaml", (
     'DisplayMemberPath="Name"', 'SelectionChanged="DocumentList_SelectionChanged"',
 ))
 
-require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
+require(TESTS / "QS3D.Cad.SmokeTests.csproj", (
+    "QS3D.Cad.Native.Oda.Bootstrap", "QS3D.Platform.Parity", "QS3D.Platform.Families",
+))
 require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
 require(TESTS / "CommandRegistrationModuleSmoke.cs", (
     "journalCommand", "UNDO", "REDO", "StandaloneCommandCatalog", "TestCommand", "Commands.Contains", "TryResolve",
@@ -89,6 +96,9 @@ require(TESTS / "CommandLineTokenizerModuleSmoke.cs", ("windowsPath", "ExecuteCo
 require(TESTS / "DocumentLifecycleCleanupModuleSmoke.cs", ("app.Documents.Close", "Lifecycle reopened", "reused stale application journal"))
 require(TESTS / "CadBackendPolicyModuleSmoke.cs", ("BooleanSolids", "Grips", "extendedCapabilities"))
 require(TESTS / "CadBackendQualificationEvidenceJsonModuleSmoke.cs", ("RewriteCapabilities", "1L << 20"))
+require(TESTS / "NativeSdkReadinessModuleSmoke.cs", (
+    "ConfiguredUnqualified", "IsProductionQualified", "DirectoryMissing", "NotConfigured",
+))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
@@ -98,7 +108,7 @@ for regression in (
     "CommandRegistrationModuleSmoke.cs", "DocumentLifecycleCleanupModuleSmoke.cs",
     "StandaloneOrphanHandleHealthModuleSmoke.cs", "BootstrapDrawingCorruptionModuleSmoke.cs",
     "CommandJournalFailureModuleSmoke.cs", "DerivedCoordinateOverflowModuleSmoke.cs",
-    "CommandLineTokenizerModuleSmoke.cs",
+    "CommandLineTokenizerModuleSmoke.cs", "NativeSdkReadinessModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
