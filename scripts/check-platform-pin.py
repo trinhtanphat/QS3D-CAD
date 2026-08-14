@@ -8,9 +8,9 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SUBMODULE = ROOT / "external" / "QS3D-Platform"
 HOST_PROJECT = ROOT / "src" / "QS3D.Cad.Host" / "QS3D.Cad.Host.csproj"
-ADVANCED_PLATFORM = SUBMODULE / "src" / "QS3D.Platform.InMemory" / "InMemoryAdvancedServices.cs"
-ADVANCED_SHIM = ROOT / "src" / "QS3D.Cad.Host" / "PlatformAdvancedServicesCompat.cs"
-BUILD_TARGETS = ROOT / "Directory.Build.targets"
+SMOKE_PROJECT = ROOT / "tests" / "QS3D.Cad.SmokeTests" / "QS3D.Cad.SmokeTests.csproj"
+LEGACY_ADVANCED_SHIM = ROOT / "src" / "QS3D.Cad.Host" / "PlatformAdvancedServicesCompat.cs"
+LEGACY_BUILD_TARGETS = ROOT / "Directory.Build.targets"
 
 
 def run(*args: str) -> str:
@@ -80,20 +80,38 @@ def main() -> int:
             if project not in project_text:
                 failures.append(f"Host project is missing shared reference {project}")
 
+    if not SMOKE_PROJECT.exists():
+        failures.append("standalone smoke project is missing")
+    else:
+        smoke_text = SMOKE_PROJECT.read_text(encoding="utf-8")
+        for project in ("QS3D.Platform.Parity", "QS3D.Platform.Families"):
+            if project not in smoke_text:
+                failures.append(f"Smoke project is missing shared reference {project}")
+
     if SUBMODULE.exists():
-        for relative in (
+        required_surfaces = (
             pathlib.Path("src/QS3D.Platform.Cad.Abstractions/CadAdvancedContracts.cs"),
+            pathlib.Path("src/QS3D.Platform.Cad.Abstractions/CadConformance.cs"),
+            pathlib.Path("src/QS3D.Platform.InMemory/InMemoryAdvancedServices.cs"),
             pathlib.Path("src/QS3D.Platform.Persistence/QS3D.Platform.Persistence.csproj"),
+            pathlib.Path("src/QS3D.Platform.Persistence/ProjectContainerManifest.cs"),
             pathlib.Path("src/QS3D.Platform.Quantity/QS3D.Platform.Quantity.csproj"),
-        ):
+            pathlib.Path("src/QS3D.Platform.Quantity/QuantityScheduleCsv.cs"),
+            pathlib.Path("src/QS3D.Platform.Parity/QS3D.Platform.Parity.csproj"),
+            pathlib.Path("src/QS3D.Platform.Families/QS3D.Platform.Families.csproj"),
+            pathlib.Path("scripts/check-netstandard20-boundary.py"),
+            pathlib.Path("scripts/check-reference-services.py"),
+            pathlib.Path("scripts/check-parity.py"),
+            pathlib.Path("scripts/check-families.py"),
+        )
+        for relative in required_surfaces:
             if not (SUBMODULE / relative).exists():
                 failures.append(f"pinned Platform is missing required surface {relative.as_posix()}")
 
-        if not ADVANCED_PLATFORM.exists():
-            if not ADVANCED_SHIM.exists():
-                failures.append("pinned Platform lacks InMemoryAdvancedServices.cs and the compatibility shim is missing")
-            if not BUILD_TARGETS.exists():
-                failures.append("advanced compatibility shim exists without Directory.Build.targets auto-exclusion guard")
+    if LEGACY_ADVANCED_SHIM.exists():
+        failures.append("legacy PlatformAdvancedServicesCompat.cs must not coexist with the authoritative pinned Platform implementation")
+    if LEGACY_BUILD_TARGETS.exists():
+        failures.append("legacy Directory.Build.targets compatibility exclusion is no longer allowed")
 
     if failures:
         print("Platform pin guard FAILED")
