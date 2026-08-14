@@ -1,45 +1,52 @@
-name: Bootstrap QS3D CAD Preview Release
+name: Verify QS3D CAD Published Preview
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/workflows/bootstrap-preview-tag.yml
+  workflow_dispatch:
 
 permissions:
-  actions: write
   contents: read
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       GH_TOKEN: ${{ github.token }}
-      TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d
+      RELEASE_TAG: v0.1.0-preview.2
+      TARGET_SHA: a3c0e6d098f02c8cfbb594020b20930491339d59
+      INSTALLER_NAME: QS3D-CAD-Setup-win-x64.exe
+      CHECKSUM_NAME: QS3D-CAD-Setup-win-x64.exe.sha256
+      INSTALLER_SHA256: 5f6912569bbc43bbcfb7bdd18c902c35457aa91964c5d3b6f01264174d5c562e
     steps:
-      - name: Verify validated source commit
+      - name: Verify published tag source identity
         shell: bash
         run: |
           set -euo pipefail
-          if [[ ! "$TARGET_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "TARGET_SHA must be an exact 40-character lowercase commit SHA." >&2
-            exit 1
-          fi
-          actual="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TARGET_SHA" --jq '.sha')"
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha')"
           if [[ "$actual" != "$TARGET_SHA" ]]; then
-            echo "Resolved source $actual does not match validated SHA $TARGET_SHA" >&2
+            echo "Release tag $RELEASE_TAG points to $actual, expected $TARGET_SHA" >&2
             exit 1
           fi
-          echo "Validated exact release source: $actual"
+          echo "Published tag source PASS: $RELEASE_TAG -> $actual"
 
-      - name: Dispatch current release workflow for exact source
+      - name: Verify published release assets and checksum
         shell: bash
         run: |
           set -euo pipefail
-          gh workflow run release-windows.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref main \
-            -f confirm_release=RELEASE \
-            -f "source_sha=$TARGET_SHA"
-          echo "Dispatched current release workflow for exact source $TARGET_SHA"
+          release_json="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isPrerelease,assets)"
+          [[ "$(jq -r '.tagName' <<<"$release_json")" == "$RELEASE_TAG" ]]
+          [[ "$(jq -r '.isPrerelease' <<<"$release_json")" == "true" ]]
+          names="$(jq -r '.assets[].name' <<<"$release_json")"
+          grep -Fxq "$INSTALLER_NAME" <<<"$names"
+          grep -Fxq "$CHECKSUM_NAME" <<<"$names"
+
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$work" --pattern "$INSTALLER_NAME" --pattern "$CHECKSUM_NAME"
+          actual_hash="$(sha256sum "$work/$INSTALLER_NAME" | awk '{print tolower($1)}')"
+          declared_hash="$(awk '{print tolower($1); exit}' "$work/$CHECKSUM_NAME")"
+          if [[ "$actual_hash" != "$INSTALLER_SHA256" || "$declared_hash" != "$INSTALLER_SHA256" ]]; then
+            echo "Published installer checksum mismatch: actual=$actual_hash declared=$declared_hash expected=$INSTALLER_SHA256" >&2
+            exit 1
+          fi
+          echo "Published release checksum PASS: $actual_hash"

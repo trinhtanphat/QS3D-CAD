@@ -90,15 +90,19 @@ def main() -> int:
         require(token in release, description, failures)
     require("branches:\n      - main" not in release, "release workflow must never auto-publish from a main-branch push", failures)
 
-    bootstrap = read(".github/workflows/bootstrap-preview-tag.yml")
+    verifier = read(".github/workflows/bootstrap-preview-tag.yml")
     for token, description in (
-        ("TARGET_SHA: 14b0d374769cb571bb5150654ea8f0e209ea658d", "preview bootstrap must bind directly to validated CAD SHA"),
-        ("commits/$TARGET_SHA", "bootstrap must resolve the exact source commit before dispatch"),
-        ("--ref main", "bootstrap must load the current hardened release workflow definition from main"),
-        ('-f "source_sha=$TARGET_SHA"', "bootstrap must pass the exact source SHA separately from workflow definition ref"),
+        ("workflow_dispatch:", "published preview verifier must be manual-only"),
+        ("RELEASE_TAG: v0.1.0-preview.2", "published preview verifier must bind the released tag"),
+        ("TARGET_SHA: a3c0e6d098f02c8cfbb594020b20930491339d59", "published preview verifier must bind the released source SHA"),
+        ("git/ref/tags/$RELEASE_TAG", "published preview verifier must read back tag source identity"),
+        ("gh release view", "published preview verifier must inspect release metadata"),
+        ("gh release download", "published preview verifier must download published assets for checksum verification"),
+        ("5f6912569bbc43bbcfb7bdd18c902c35457aa91964c5d3b6f01264174d5c562e", "published preview verifier must lock the released installer digest"),
     ):
-        require(token in bootstrap, description, failures)
-    require("release/v0.1.0-preview.2" not in bootstrap, "bootstrap must not depend on a mutable release branch", failures)
+        require(token in verifier, description, failures)
+    require("gh workflow run" not in verifier, "published preview verifier must not trigger another release", failures)
+    require("actions: write" not in verifier, "published preview verifier must remain read-only", failures)
 
     if failures:
         print("QS3D CAD release contract FAILED")
