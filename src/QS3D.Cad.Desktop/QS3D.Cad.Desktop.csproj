@@ -5,6 +5,10 @@
     <UseWPF>true</UseWPF>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>QS3D.CAD</AssemblyName>
+    <Product>QS3D CAD</Product>
+    <AssemblyTitle>QS3D CAD</AssemblyTitle>
+    <Company>QS3D</Company>
+    <Description>Standalone Windows CAD/BIM/QS application.</Description>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="..\QS3D.Cad.Host\QS3D.Cad.Host.csproj" /></ItemGroup>
 </Project>
