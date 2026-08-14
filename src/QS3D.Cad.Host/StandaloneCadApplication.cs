@@ -9,26 +9,28 @@ public sealed class StandaloneCadApplication
 {
     private readonly Dictionary<DrawingId, Stack<HistoryEntry>> _undo = new();
     private readonly Dictionary<DrawingId, Stack<HistoryEntry>> _redo = new();
+    private readonly CommandRegistry _commands;
 
     public StandaloneCadApplication()
     {
         Projects = new StandaloneSemanticWorkspace();
         Documents = new StandaloneDocumentManager(OnDocumentOpened, OnDocumentClosed);
-        Commands = new CommandRegistry();
+        _commands = new CommandRegistry();
+        Commands = new StandaloneCommandCatalog(_commands);
         Store = new BootstrapDrawingStore();
-        BuiltInCommands.RegisterAll(Commands);
-        LayerCommands.RegisterAll(Commands);
-        BlockCommands.RegisterAll(Commands);
-        SemanticCommands.RegisterAll(Commands, Projects);
-        AdvancedReferenceCommands.RegisterAll(Commands);
-        XrefReferenceCommands.RegisterAll(Commands);
-        LayoutReferenceCommands.RegisterAll(Commands);
-        PlotReferenceCommands.RegisterAll(Commands);
+        BuiltInCommands.RegisterAll(_commands);
+        LayerCommands.RegisterAll(_commands);
+        BlockCommands.RegisterAll(_commands);
+        SemanticCommands.RegisterAll(_commands, Projects);
+        AdvancedReferenceCommands.RegisterAll(_commands);
+        XrefReferenceCommands.RegisterAll(_commands);
+        LayoutReferenceCommands.RegisterAll(_commands);
+        PlotReferenceCommands.RegisterAll(_commands);
     }
 
     public StandaloneDocumentManager Documents { get; }
     public StandaloneSemanticWorkspace Projects { get; }
-    public CommandRegistry Commands { get; }
+    public StandaloneCommandCatalog Commands { get; }
     public BootstrapDrawingStore Store { get; }
 
     public ICadDocument NewDocument(string name) => Documents.CreateNew(name);
@@ -93,7 +95,7 @@ public sealed class StandaloneCadApplication
         CommandResult result;
         try
         {
-            result = Commands.Execute(tokens[0], new CommandContext(document, tokens.Skip(1), cancellationToken));
+            result = _commands.Execute(tokens[0], new CommandContext(document, tokens.Skip(1), cancellationToken));
         }
         catch
         {
