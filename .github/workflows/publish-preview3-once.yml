@@ -38,8 +38,15 @@ jobs:
           if ($version -ne $env:RELEASE_VERSION) { throw "VERSION '$version' does not match '$env:RELEASE_VERSION'." }
           git fetch --force --tags origin
           if (@(git tag --list $env:RELEASE_TAG).Count -gt 0) { throw "Tag '$env:RELEASE_TAG' already exists; refusing replacement." }
-          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -eq 0) { throw "Release '$env:RELEASE_TAG' already exists; refusing replacement." }
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept = "application/vnd.github+json"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+          $releaseUri = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG"
+          $response = Invoke-WebRequest -Headers $headers -Uri $releaseUri -Method Get -SkipHttpErrorCheck
+          if ($response.StatusCode -eq 200) { throw "Release '$env:RELEASE_TAG' already exists; refusing replacement." }
+          if ($response.StatusCode -ne 404) { throw "Unexpected release probe status $($response.StatusCode) for '$env:RELEASE_TAG'." }
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
