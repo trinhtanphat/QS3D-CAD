@@ -70,8 +70,9 @@ jobs:
           }
 
           git fetch --force --tags origin
-          git rev-parse --verify --quiet "refs/tags/$tag^{commit}" *> $null
-          $tagExists = $LASTEXITCODE -eq 0
+          $matchingTags = @(git tag --list $tag)
+          if ($LASTEXITCODE -ne 0) { throw "Failed to inspect release tags." }
+          $tagExists = $matchingTags.Count -gt 0
           if ($tagExists) {
             $tagTarget = (git rev-list -n 1 $tag).Trim()
             if ($tagTarget -ne $env:GITHUB_SHA) {
