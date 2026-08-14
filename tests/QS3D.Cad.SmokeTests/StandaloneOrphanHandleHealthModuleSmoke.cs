@@ -11,6 +11,8 @@ internal static class StandaloneOrphanHandleHealthModuleSmoke
     {
         var app = new StandaloneCadApplication();
         var document = (InMemoryCadDocument)app.NewDocument("Orphan health");
+        var editor = document.Editor as InMemoryEditor
+            ?? throw new InvalidOperationException("Standalone orphan-handle smoke requires the in-memory editor.");
 
         Success(app.Execute("LINE 0 0 10 0"));
         Success(app.Execute("QSTAG 1 Wall TaggedWall"));
@@ -19,7 +21,7 @@ internal static class StandaloneOrphanHandleHealthModuleSmoke
         Success(app.Execute("ERASE 1"));
         var blocked = app.Execute("QSHEALTH");
         Require(!blocked.Succeeded, "health must block when a tagged source handle is erased");
-        Require(document.Editor.Messages.Any(static message => message.Contains("ORPHAN_HANDLE", StringComparison.Ordinal)),
+        Require(editor.Messages.Any(static message => message.Contains("ORPHAN_HANDLE", StringComparison.Ordinal)),
             "health output must identify the missing live CAD reference as ORPHAN_HANDLE");
 
         Success(app.Execute("UNDO"));
