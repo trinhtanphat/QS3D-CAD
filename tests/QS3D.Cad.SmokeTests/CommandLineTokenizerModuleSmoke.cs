@@ -30,14 +30,18 @@ internal static class CommandLineTokenizerModuleSmoke
         Success(app.Execute("LINE 0 0 1 0"));
         Success(app.Execute("QSTAG 1 Wall EmptyPropertyWall"));
         Success(app.Execute("QSPROP 1 Note \"\""));
+        Success(app.ExecuteCommand("QSPROP", new[] { "1", "DirectEmpty", string.Empty }));
         var element = app.Projects.GetElementBySource(app.Documents.ActiveDocument!, new QS3D.Platform.Domain.CadHandle("1"));
         Equal(string.Empty, element.Properties["Note"]);
+        Equal(string.Empty, element.Properties["DirectEmpty"]);
 
         Success(app.Execute($"XREFREF ATTACH Base \"{windowsPath}\" Overlay"));
-        var xref = InMemoryAdvancedServicesRegistry.For((InMemoryCadDocument)app.Documents.ActiveDocument!).Xrefs.GetXrefs().Single();
-        Equal(windowsPath, xref.Path);
+        Success(app.ExecuteCommand("XREFREF", new[] { "ATTACH", "Direct", windowsPath, "Overlay" }));
+        var xrefs = InMemoryAdvancedServicesRegistry.For((InMemoryCadDocument)app.Documents.ActiveDocument!).Xrefs.GetXrefs();
+        Equal(windowsPath, xrefs.Single(item => item.Name == "Base").Path);
+        Equal(windowsPath, xrefs.Single(item => item.Name == "Direct").Path);
 
-        Console.WriteLine("PASS command tokenizer preserves empty quoted arguments and Windows paths");
+        Console.WriteLine("PASS command tokenizer and pre-tokenized execution preserve empty arguments and Windows paths");
     }
 
     private static void Success(QS3D.Platform.Application.CommandResult result)
