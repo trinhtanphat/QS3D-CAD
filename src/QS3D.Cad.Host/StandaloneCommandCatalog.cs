@@ -20,8 +20,10 @@ public sealed class StandaloneCommandCatalog
     public void Register(ICadCommand command)
     {
         if (command is null) throw new ArgumentNullException(nameof(command));
-        if (ReservedApplicationCommands.Contains(command.Name.Trim()))
-            throw new InvalidOperationException($"Command '{command.Name}' is reserved by the standalone application journal.");
+        var name = command.Name;
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Command name must not be blank.", nameof(command));
+        if (ReservedApplicationCommands.Contains(name.Trim()))
+            throw new InvalidOperationException($"Command '{name}' is reserved by the standalone application journal.");
         _registry.Register(command);
     }
 
