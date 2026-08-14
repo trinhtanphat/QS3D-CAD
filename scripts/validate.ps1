@@ -9,6 +9,9 @@ python scripts/preflight.py
 Write-Host '== QS3D-CAD source boundary =='
 python scripts/check-standalone-source-boundary.py
 
+Write-Host '== QS3D-CAD release contract =='
+python scripts/check-release-contract.py
+
 Write-Host '== Initialize pinned QS3D-Platform =='
 git submodule update --init --recursive
 
