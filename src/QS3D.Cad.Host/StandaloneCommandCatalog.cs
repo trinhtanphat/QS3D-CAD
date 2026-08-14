@@ -20,10 +20,14 @@ public sealed class StandaloneCommandCatalog
     public void Register(ICadCommand command)
     {
         if (command is null) throw new ArgumentNullException(nameof(command));
-        if (ReservedApplicationCommands.Contains(command.Name?.Trim() ?? string.Empty))
+        if (ReservedApplicationCommands.Contains(command.Name.Trim()))
             throw new InvalidOperationException($"Command '{command.Name}' is reserved by the standalone application journal.");
         _registry.Register(command);
     }
 
-    public bool TryResolve(string name, out ICadCommand? command) => _registry.TryResolve(name, out command);
+    public bool Contains(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return false;
+        return _registry.TryResolve(name, out _);
+    }
 }
