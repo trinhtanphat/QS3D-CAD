@@ -14,12 +14,21 @@ def require(path: pathlib.Path, tokens: tuple[str, ...]) -> None:
     for token in tokens:
         if token not in text: errors.append(f"{path.relative_to(ROOT)} missing required token {token!r}")
 
+def forbid(path: pathlib.Path, tokens: tuple[str, ...]) -> None:
+    if not path.is_file():
+        errors.append(f"missing {path.relative_to(ROOT)}")
+        return
+    text = path.read_text(encoding="utf-8", errors="replace")
+    for token in tokens:
+        if token in text: errors.append(f"{path.relative_to(ROOT)} contains forbidden token {token!r}")
+
 require(HOST / "StandaloneCadApplication.cs", (
     "BuiltInCommands.RegisterAll", "LayerCommands.RegisterAll", "BlockCommands.RegisterAll",
     "SemanticCommands.RegisterAll", "AdvancedReferenceCommands.RegisterAll",
     "XrefReferenceCommands.RegisterAll", "LayoutReferenceCommands.RegisterAll", "PlotReferenceCommands.RegisterAll",
-    "CloseDocument", "Projects.Detach", "_undo.Remove", "_redo.Remove",
+    "CloseDocument", "Projects.Detach", "_undo.Remove", "_redo.Remove", "RecordMutation",
 ))
+forbid(HOST / "BuiltInCommands.cs", ("new UndoCommand", "new RedoCommand", "class UndoCommand", "class RedoCommand"))
 require(HOST / "StandaloneSemanticWorkspace.cs", ("Detach(DrawingId", "_states.Remove"))
 require(HOST / "StandaloneModelReadinessAnalyzer.cs", ("ORPHAN_HANDLE", "CadTransactionMode.ReadOnly", "ModelReadinessAnalyzer.Analyze"))
 require(HOST / "SemanticCommands.cs", ("SemanticAuthoringCommands.RegisterAll", "StandaloneModelReadinessAnalyzer.Analyze"))
@@ -43,6 +52,7 @@ for source in ("XrefReferenceCommands.cs", "LayoutReferenceCommands.cs", "PlotRe
     if not (HOST / source).is_file(): errors.append(f"missing src/QS3D.Cad.Host/{source}")
 require(TESTS / "QS3D.Cad.SmokeTests.csproj", ("QS3D.Platform.Parity", "QS3D.Platform.Families"))
 require(TESTS / "Qs3dBackupRecoveryModuleSmoke.cs", ("CorruptDrawingPayloadWithMatchingManifest", "drawing-bootstrap.json"))
+require(TESTS / "CommandRegistrationModuleSmoke.cs", ("journalCommand", "UNDO", "REDO"))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
     "Qs3dBackupRecoveryModuleSmoke.cs", "CadBackendPolicyModuleSmoke.cs",
@@ -51,6 +61,7 @@ for regression in (
     "StandaloneParityModuleSmoke.cs", "StandaloneFamilySchemaModuleSmoke.cs",
     "CommandRegistrationModuleSmoke.cs", "DocumentLifecycleCleanupModuleSmoke.cs",
     "StandaloneOrphanHandleHealthModuleSmoke.cs", "BootstrapDrawingCorruptionModuleSmoke.cs",
+    "CommandJournalFailureModuleSmoke.cs",
 ):
     if not (TESTS / regression).is_file(): errors.append(f"missing tests/QS3D.Cad.SmokeTests/{regression}")
 if errors:
