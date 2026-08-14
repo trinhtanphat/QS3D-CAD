@@ -57,8 +57,13 @@ internal static class CopyMoveModuleSmoke
         var revisionBeforeMissingMove = document.Database.Revision;
         Fails(app.Execute($"MOVE {line.Handle} FFFF 1 1"));
         var lineAfterMissingMove = Query(document).Single(entity => entity.Handle == line.Handle);
-        if (document.Database.Revision != revisionBeforeMissingMove || lineAfterMissingMove != lineBeforeMissingMove)
-            throw new InvalidOperationException("MOVE with a missing source must not partially mutate earlier entities.");
+        if (document.Database.Revision != revisionBeforeMissingMove)
+            throw new InvalidOperationException("MOVE with a missing source must not commit a database revision.");
+        SameExtents(lineBeforeMissingMove, lineAfterMissingMove);
+        Equal(Number(lineBeforeMissingMove, "x1"), Number(lineAfterMissingMove, "x1"));
+        Equal(Number(lineBeforeMissingMove, "y1"), Number(lineAfterMissingMove, "y1"));
+        Equal(Number(lineBeforeMissingMove, "x2"), Number(lineAfterMissingMove, "x2"));
+        Equal(Number(lineBeforeMissingMove, "y2"), Number(lineAfterMissingMove, "y2"));
 
         Succeeds(app.Execute("LINE 1E308 0 1E308 1"));
         var huge = Query(document).Single(static entity => entity.Kind == CadEntityKind.Line && entity.Extents.Min.X > 1E307);
@@ -82,6 +87,16 @@ internal static class CopyMoveModuleSmoke
         if (!entity.Properties.TryGetValue(key, out var raw) || !double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
             throw new InvalidOperationException($"Expected finite numeric property '{key}' on {entity.Handle}.");
         return value;
+    }
+
+    private static void SameExtents(CadEntitySnapshot expected, CadEntitySnapshot actual)
+    {
+        Equal(expected.Extents.Min.X, actual.Extents.Min.X);
+        Equal(expected.Extents.Min.Y, actual.Extents.Min.Y);
+        Equal(expected.Extents.Min.Z, actual.Extents.Min.Z);
+        Equal(expected.Extents.Max.X, actual.Extents.Max.X);
+        Equal(expected.Extents.Max.Y, actual.Extents.Max.Y);
+        Equal(expected.Extents.Max.Z, actual.Extents.Max.Z);
     }
 
     private static void Equal(double expected, double actual)
