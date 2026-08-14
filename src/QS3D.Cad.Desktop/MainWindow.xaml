@@ -1,65 +1,70 @@
 <Window x:Class="QS3D.Cad.Desktop.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="QS3D CAD — Standalone" Height="820" Width="1320" MinHeight="640" MinWidth="980">
-  <DockPanel>
-    <Menu DockPanel.Dock="Top">
-      <MenuItem Header="_File">
-        <MenuItem Header="_New" Click="New_Click" />
-        <MenuItem Header="_Open project..." Click="Open_Click" />
-        <MenuItem Header="_Save project..." Click="Save_Click" />
-      </MenuItem>
-      <MenuItem Header="_Draw">
-        <MenuItem Header="Line" Click="Line_Click" />
-        <MenuItem Header="Circle" Click="Circle_Click" />
-      </MenuItem>
+        Title="QS3D CAD — Standalone" Height="900" Width="1500" MinHeight="700" MinWidth="1100"
+        Background="#0D1117" PreviewKeyDown="Window_PreviewKeyDown">
+  <Window.Resources>
+    <SolidColorBrush x:Key="PanelBrush" Color="#151B23" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#2D3A4A" />
+    <SolidColorBrush x:Key="TextBrush" Color="#EAF2F8" />
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#91A4B7" />
+    <Style x:Key="CadButton" TargetType="Button">
+      <Setter Property="Foreground" Value="{StaticResource TextBrush}"/><Setter Property="Background" Value="#223044"/>
+      <Setter Property="BorderBrush" Value="#3A506A"/><Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="10,5"/><Setter Property="Margin" Value="2"/><Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <Style x:Key="ToolButton" TargetType="Button" BasedOn="{StaticResource CadButton}"><Setter Property="MinWidth" Value="66"/></Style>
+    <Style x:Key="PanelList" TargetType="ListBox">
+      <Setter Property="Background" Value="{StaticResource PanelBrush}"/><Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+      <Setter Property="BorderThickness" Value="0"/><Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
+    </Style>
+  </Window.Resources>
+  <DockPanel LastChildFill="True">
+    <Menu DockPanel.Dock="Top" Background="#F3F4F6">
+      <MenuItem Header="_File"><MenuItem Header="_New" InputGestureText="Ctrl+N" Click="New_Click"/><MenuItem Header="_Open project..." InputGestureText="Ctrl+O" Click="Open_Click"/><MenuItem Header="_Save project..." InputGestureText="Ctrl+S" Click="Save_Click"/><Separator/><MenuItem Header="E_xit" Click="Exit_Click"/></MenuItem>
+      <MenuItem Header="_Draw"><MenuItem Header="Select" Click="SelectTool_Click"/><Separator/><MenuItem Header="Line" Click="Line_Click"/><MenuItem Header="Rectangle" Click="Rectangle_Click"/><MenuItem Header="Circle" Click="Circle_Click"/><Separator/><MenuItem Header="Erase selected" InputGestureText="Del" Click="Erase_Click"/><MenuItem Header="Move selected..." Click="Move_Click"/></MenuItem>
+      <MenuItem Header="_View"><MenuItem Header="Zoom extents" Click="ZoomExtents_Click"/><MenuItem Header="Refresh" InputGestureText="F5" Click="Refresh_Click"/></MenuItem>
+      <MenuItem Header="_Tools"><MenuItem Header="Create sample drawing" Click="Sample_Click"/><MenuItem Header="List entities" Click="ListEntities_Click"/><MenuItem Header="List layers" Click="ListLayers_Click"/></MenuItem>
     </Menu>
-    <ToolBar DockPanel.Dock="Top">
-      <Button Content="New" Click="New_Click" />
-      <Button Content="Open" Click="Open_Click" />
-      <Button Content="Save" Click="Save_Click" />
-      <Separator />
-      <Button Content="Undo" Click="Undo_Click" />
-      <Button Content="Redo" Click="Redo_Click" />
-      <Separator />
-      <Button Content="Refresh" Click="Refresh_Click" />
-    </ToolBar>
-    <StatusBar DockPanel.Dock="Bottom">
-      <TextBlock x:Name="StatusText" Text="Ready" />
-    </StatusBar>
+    <Border DockPanel.Dock="Top" Background="#101722" BorderBrush="#263445" BorderThickness="0,0,0,1" Padding="8,6">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+          <Border Width="40" Height="40" CornerRadius="9" Background="#071525" BorderBrush="#19A7FF" BorderThickness="1" Margin="0,0,10,0">
+            <Viewbox Margin="5"><Grid Width="48" Height="48"><Path Data="M24,5 L42,15 L24,25 L6,15 Z M6,15 L6,35 L24,45 L24,25 M42,15 L42,35 L24,45" Stroke="#22B8FF" StrokeThickness="3" Fill="Transparent" StrokeLineJoin="Round"/><Path Data="M13,18 L24,12 L35,18 M13,18 L13,28 L22,33 M35,18 L35,28 L26,33" Stroke="White" StrokeThickness="1.8" Fill="Transparent"/></Grid></Viewbox>
+          </Border>
+          <StackPanel VerticalAlignment="Center" Margin="0,0,18,0"><TextBlock Text="QS3D CAD" Foreground="White" FontWeight="SemiBold" FontSize="16"/><TextBlock Text="Standalone reference workspace" Foreground="{StaticResource MutedTextBrush}" FontSize="10"/></StackPanel>
+          <Button Style="{StaticResource CadButton}" Content="New" Click="New_Click"/><Button Style="{StaticResource CadButton}" Content="Open" Click="Open_Click"/><Button Style="{StaticResource CadButton}" Content="Save" Click="Save_Click"/><Separator Margin="7,0" Background="#425267"/><Button Style="{StaticResource CadButton}" Content="Undo" Click="Undo_Click"/><Button Style="{StaticResource CadButton}" Content="Redo" Click="Redo_Click"/>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="CurrentLayerText" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center" Margin="6,0,10,0" Text="Layer: 0"/><Button Style="{StaticResource CadButton}" Content="Sample" Click="Sample_Click"/><Button Style="{StaticResource CadButton}" Content="Zoom Extents" Click="ZoomExtents_Click"/></StackPanel>
+      </DockPanel>
+    </Border>
+    <Border DockPanel.Dock="Top" Background="#121A25" BorderBrush="#263445" BorderThickness="0,0,0,1" Padding="5,3">
+      <StackPanel Orientation="Horizontal"><TextBlock Text="DRAW" Foreground="{StaticResource MutedTextBrush}" FontWeight="Bold" VerticalAlignment="Center" Margin="6,0,8,0"/><Button x:Name="SelectToolButton" Style="{StaticResource ToolButton}" Content="Select" Click="SelectTool_Click"/><Button x:Name="LineToolButton" Style="{StaticResource ToolButton}" Content="Line" Click="Line_Click"/><Button x:Name="RectangleToolButton" Style="{StaticResource ToolButton}" Content="Rectangle" Click="Rectangle_Click"/><Button x:Name="CircleToolButton" Style="{StaticResource ToolButton}" Content="Circle" Click="Circle_Click"/><Separator Margin="8,0" Background="#425267"/><Button Style="{StaticResource ToolButton}" Content="Move" Click="Move_Click"/><Button Style="{StaticResource ToolButton}" Content="Erase" Click="Erase_Click"/><Separator Margin="8,0" Background="#425267"/><Button Style="{StaticResource ToolButton}" Content="New Layer" Click="NewLayer_Click"/><Button Style="{StaticResource ToolButton}" Content="Toggle On" Click="ToggleLayerOn_Click"/><Button Style="{StaticResource ToolButton}" Content="Toggle Lock" Click="ToggleLayerLock_Click"/></StackPanel>
+    </Border>
+    <StatusBar DockPanel.Dock="Bottom" Background="#0B1118" Foreground="{StaticResource TextBrush}" BorderBrush="#263445" BorderThickness="0,1,0,0"><StatusBarItem><TextBlock x:Name="StatusText" Text="Ready"/></StatusBarItem><Separator/><StatusBarItem><TextBlock x:Name="ToolStatusText" Text="Tool: Select"/></StatusBarItem><Separator/><StatusBarItem><TextBlock x:Name="CursorStatusText" Text="X: 0  Y: 0"/></StatusBarItem><Separator/><StatusBarItem HorizontalAlignment="Right"><TextBlock x:Name="EntityCountText" Text="0 entities"/></StatusBarItem></StatusBar>
     <Grid>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="220" />
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="300" />
-      </Grid.ColumnDefinitions>
-      <Border Grid.Column="0" BorderBrush="Gray" BorderThickness="0,0,1,0" Padding="8">
-        <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="Project / Drawing" FontWeight="Bold" Margin="0,0,0,8" />
-          <ListBox x:Name="DocumentList" DisplayMemberPath="Name" SelectionChanged="DocumentList_SelectionChanged" />
-        </DockPanel>
+      <Grid.ColumnDefinitions><ColumnDefinition Width="250"/><ColumnDefinition Width="5"/><ColumnDefinition Width="*"/><ColumnDefinition Width="5"/><ColumnDefinition Width="330"/></Grid.ColumnDefinitions>
+      <Border Grid.Column="0" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+        <TabControl Background="{StaticResource PanelBrush}" Foreground="#111827">
+          <TabItem Header="Drawings"><DockPanel Background="{StaticResource PanelBrush}" Margin="6"><TextBlock DockPanel.Dock="Top" Text="OPEN DRAWINGS" Foreground="{StaticResource MutedTextBrush}" FontWeight="Bold" FontSize="11" Margin="4,4,4,8"/><ListBox x:Name="DocumentList" Style="{StaticResource PanelList}" DisplayMemberPath="Name" SelectionChanged="DocumentList_SelectionChanged"/></DockPanel></TabItem>
+          <TabItem Header="Entities"><DockPanel Background="{StaticResource PanelBrush}" Margin="6"><TextBlock DockPanel.Dock="Top" Text="MODEL SPACE" Foreground="{StaticResource MutedTextBrush}" FontWeight="Bold" FontSize="11" Margin="4,4,4,8"/><ListBox x:Name="EntityList" Style="{StaticResource PanelList}" DisplayMemberPath="DisplayText" SelectionChanged="EntityList_SelectionChanged"/></DockPanel></TabItem>
+          <TabItem Header="Layers"><DockPanel Background="{StaticResource PanelBrush}" Margin="6"><StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6"><Button Style="{StaticResource CadButton}" Content="+ Layer" Click="NewLayer_Click"/><Button Style="{StaticResource CadButton}" Content="Set Current" Click="SetCurrentLayer_Click"/></StackPanel><ListBox x:Name="LayerList" Style="{StaticResource PanelList}" DisplayMemberPath="DisplayText" MouseDoubleClick="LayerList_MouseDoubleClick"/></DockPanel></TabItem>
+        </TabControl>
       </Border>
-      <Grid Grid.Column="1" Background="#202124">
-        <Grid.RowDefinitions>
-          <RowDefinition Height="*" />
-          <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-        <Grid>
-          <TextBlock Text="Native viewport adapter not connected yet.&#x0a;Reference entities are listed below for deterministic host development."
-                     Foreground="LightGray" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="20" TextAlignment="Center" />
-          <ListBox x:Name="EntityList" Margin="24,86,24,24" Background="#303134" Foreground="White" BorderThickness="0" />
-        </Grid>
-        <DockPanel Grid.Row="1" Margin="8">
-          <TextBlock Text="Command:" Foreground="White" VerticalAlignment="Center" Margin="0,0,8,0" />
-          <Button DockPanel.Dock="Right" Content="Run" Click="Run_Click" Margin="8,0,0,0" Padding="16,4" />
-          <TextBox x:Name="CommandBox" KeyDown="CommandBox_KeyDown" />
-        </DockPanel>
+      <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#263445"/>
+      <Grid Grid.Column="2" Background="#0B1017">
+        <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Border Grid.Row="0" Background="#0E141D" BorderBrush="#263445" BorderThickness="1" Margin="5">
+          <Grid ClipToBounds="True"><Canvas x:Name="ViewportCanvas" Background="#0E141D" MouseLeftButtonDown="ViewportCanvas_MouseLeftButtonDown" MouseMove="ViewportCanvas_MouseMove" SizeChanged="ViewportCanvas_SizeChanged"/><Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" Background="#AA111923" CornerRadius="4" Padding="8,5" IsHitTestVisible="False"><StackPanel><TextBlock Text="REFERENCE 2D VIEWPORT" Foreground="#67C7FF" FontWeight="SemiBold" FontSize="11"/><TextBlock Text="Click tools to draw • click entity to select • Esc cancels" Foreground="{StaticResource MutedTextBrush}" FontSize="10"/></StackPanel></Border></Grid>
+        </Border>
+        <Border Grid.Row="1" Background="#111923" BorderBrush="#263445" BorderThickness="1,1,1,0" Margin="5,0,5,5" Padding="7"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="Command" Foreground="{StaticResource MutedTextBrush}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0"/><TextBox Grid.Column="1" x:Name="CommandBox" KeyDown="CommandBox_KeyDown" Background="#F8FAFC" Foreground="#111827" Padding="6,4"/><Button Grid.Column="2" Style="{StaticResource CadButton}" Content="Run" Click="Run_Click" Margin="8,0,0,0" MinWidth="64"/></Grid></Border>
       </Grid>
-      <Border Grid.Column="2" BorderBrush="Gray" BorderThickness="1,0,0,0" Padding="8">
-        <DockPanel>
-          <TextBlock DockPanel.Dock="Top" Text="Properties / Messages" FontWeight="Bold" Margin="0,0,0,8" />
-          <ListBox x:Name="MessageList" />
-        </DockPanel>
+      <GridSplitter Grid.Column="3" Width="5" HorizontalAlignment="Stretch" Background="#263445"/>
+      <Border Grid.Column="4" Background="{StaticResource PanelBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1,0,0,0">
+        <TabControl Background="{StaticResource PanelBrush}" Foreground="#111827">
+          <TabItem Header="Properties"><DockPanel Background="{StaticResource PanelBrush}" Margin="8"><TextBlock DockPanel.Dock="Top" Text="SELECTION PROPERTIES" Foreground="{StaticResource MutedTextBrush}" FontWeight="Bold" FontSize="11" Margin="4,4,4,8"/><ListView x:Name="PropertyList" Background="{StaticResource PanelBrush}" Foreground="{StaticResource TextBrush}" BorderThickness="0"><ListView.View><GridView><GridViewColumn Header="Property" Width="115" DisplayMemberBinding="{Binding Name}"/><GridViewColumn Header="Value" Width="180" DisplayMemberBinding="{Binding Value}"/></GridView></ListView.View></ListView></DockPanel></TabItem>
+          <TabItem Header="Messages"><DockPanel Background="{StaticResource PanelBrush}" Margin="8"><TextBlock DockPanel.Dock="Top" Text="COMMAND / HOST MESSAGES" Foreground="{StaticResource MutedTextBrush}" FontWeight="Bold" FontSize="11" Margin="4,4,4,8"/><ListBox x:Name="MessageList" Style="{StaticResource PanelList}"/></DockPanel></TabItem>
+        </TabControl>
       </Border>
     </Grid>
   </DockPanel>
