@@ -10,28 +10,21 @@ public static class CommandLineTokenizer
         var tokens = new List<string>();
         var current = new StringBuilder();
         var quoted = false;
-        var escape = false;
         var tokenStarted = false;
 
-        foreach (var c in commandLine)
+        for (var index = 0; index < commandLine.Length; index++)
         {
-            if (escape)
-            {
-                current.Append(c);
-                tokenStarted = true;
-                escape = false;
-                continue;
-            }
-
-            if (c == '\\' && quoted)
-            {
-                escape = true;
-                tokenStarted = true;
-                continue;
-            }
-
+            var c = commandLine[index];
             if (c == '"')
             {
+                if (quoted && index + 1 < commandLine.Length && commandLine[index + 1] == '"')
+                {
+                    current.Append('"');
+                    tokenStarted = true;
+                    index++;
+                    continue;
+                }
+
                 quoted = !quoted;
                 tokenStarted = true;
                 continue;
@@ -47,7 +40,7 @@ public static class CommandLineTokenizer
             tokenStarted = true;
         }
 
-        if (escape || quoted)
+        if (quoted)
             throw new FormatException("Unterminated quoted command argument.");
         Flush(tokens, current, ref tokenStarted);
         return tokens;
