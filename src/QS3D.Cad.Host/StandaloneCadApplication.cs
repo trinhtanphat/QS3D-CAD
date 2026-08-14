@@ -12,8 +12,8 @@ public sealed class StandaloneCadApplication
 
     public StandaloneCadApplication()
     {
-        Documents = new InMemoryDocumentManager();
         Projects = new StandaloneSemanticWorkspace();
+        Documents = new StandaloneDocumentManager(OnDocumentOpened, OnDocumentClosed);
         Commands = new CommandRegistry();
         Store = new BootstrapDrawingStore();
         BuiltInCommands.RegisterAll(Commands);
@@ -26,37 +26,22 @@ public sealed class StandaloneCadApplication
         PlotReferenceCommands.RegisterAll(Commands);
     }
 
-    public InMemoryDocumentManager Documents { get; }
+    public StandaloneDocumentManager Documents { get; }
     public StandaloneSemanticWorkspace Projects { get; }
     public CommandRegistry Commands { get; }
     public BootstrapDrawingStore Store { get; }
 
-    public ICadDocument NewDocument(string name)
-    {
-        var document = Documents.CreateNew(name);
-        Projects.Ensure(document);
-        EnsureHistory(document.Id);
-        return document;
-    }
+    public ICadDocument NewDocument(string name) => Documents.CreateNew(name);
 
     public ICadDocument OpenBootstrap(string path)
     {
         var loaded = Store.LoadWithProject(path);
         Documents.Open(loaded.Document);
-        if (loaded.Project is null) Projects.Ensure(loaded.Document);
-        else Projects.Attach(loaded.Document, loaded.Project);
-        EnsureHistory(loaded.Document.Id);
+        if (loaded.Project is not null) Projects.Attach(loaded.Document, loaded.Project);
         return loaded.Document;
     }
 
-    public bool CloseDocument(DrawingId drawingId)
-    {
-        if (!Documents.Close(drawingId)) return false;
-        Projects.Detach(drawingId);
-        _undo.Remove(drawingId);
-        _redo.Remove(drawingId);
-        return true;
-    }
+    public bool CloseDocument(DrawingId drawingId) => Documents.Close(drawingId);
 
     public void SaveBootstrap(string path)
     {
@@ -119,6 +104,19 @@ public sealed class StandaloneCadApplication
         RecordMutation(document, databaseRevisionBefore, semanticRevisionBefore);
         if (!string.IsNullOrWhiteSpace(result.Message)) document.Editor.WriteMessage(result.Message!);
         return result;
+    }
+
+    private void OnDocumentOpened(ICadDocument document)
+    {
+        Projects.Ensure(document);
+        EnsureHistory(document.Id);
+    }
+
+    private void OnDocumentClosed(DrawingId drawingId)
+    {
+        Projects.Detach(drawingId);
+        _undo.Remove(drawingId);
+        _redo.Remove(drawingId);
     }
 
     private void RecordMutation(ICadDocument document, long databaseRevisionBefore, long semanticRevisionBefore)
