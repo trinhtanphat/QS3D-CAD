@@ -58,17 +58,39 @@ public partial class MainWindow : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new SaveFileDialog { Filter = "QS3D bootstrap (*.qs3d-bootstrap.json)|*.qs3d-bootstrap.json", AddExtension = true };
+        var dialog = new SaveFileDialog
+        {
+            Filter = "QS3D project (*.qs3d)|*.qs3d",
+            AddExtension = true,
+            DefaultExt = ".qs3d"
+        };
         if (dialog.ShowDialog(this) != true) return;
-        try { _app.SaveBootstrap(dialog.FileName); StatusText.Text = "Saved bootstrap fixture."; }
-        catch (Exception ex) { StatusText.Text = ex.Message; }
+        try
+        {
+            _app.SaveProjectPackageWithBackup(dialog.FileName);
+            StatusText.Text = "Saved QS3D project package.";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = ex.Message;
+        }
     }
 
     private void Open_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog { Filter = "QS3D bootstrap (*.qs3d-bootstrap.json)|*.qs3d-bootstrap.json" };
+        var dialog = new OpenFileDialog { Filter = "QS3D project (*.qs3d)|*.qs3d", DefaultExt = ".qs3d" };
         if (dialog.ShowDialog(this) != true) return;
-        try { _app.OpenBootstrap(dialog.FileName); StatusText.Text = "Opened bootstrap fixture."; RefreshUi(); }
-        catch (Exception ex) { StatusText.Text = ex.Message; }
+        try
+        {
+            var result = _app.OpenProjectPackageWithRecovery(dialog.FileName);
+            StatusText.Text = result.RecoveredFromBackup
+                ? $"Recovered QS3D project from validated backup: {result.SourcePath}"
+                : "Opened QS3D project package.";
+            RefreshUi();
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = ex.Message;
+        }
     }
 }
