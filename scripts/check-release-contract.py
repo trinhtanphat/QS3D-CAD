@@ -73,7 +73,7 @@ def main() -> int:
         ("submodules: recursive", "release workflow must checkout the exact Platform gitlink"),
         ("./scripts/package-windows.ps1", "release workflow must use the authoritative Windows packager"),
         ("actions/upload-artifact@v4", "release workflow must retain installer artifacts"),
-        ("gh release create", "release workflow must create the GitHub Release when absent"),
+        ("'release', 'create'", "release workflow must create the GitHub Release when absent"),
         ("gh release upload", "release workflow must idempotently refresh release assets"),
         ("QS3D-CAD-Setup-win-x64.exe.sha256", "release workflow must publish checksum evidence"),
     ):
