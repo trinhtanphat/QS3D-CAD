@@ -17,5 +17,11 @@ internal static class CommandRegistrationModuleSmoke
             if (app.Commands.TryResolve(journalCommand, out _))
                 throw new InvalidOperationException($"{journalCommand} must be owned by StandaloneCadApplication journal, not the public command registry.");
         }
+
+        var publicExecute = typeof(StandaloneCommandCatalog)
+            .GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public)
+            .FirstOrDefault(static method => StringComparer.Ordinal.Equals(method.Name, "Execute"));
+        if (publicExecute is not null)
+            throw new InvalidOperationException("StandaloneCommandCatalog must not expose raw command execution outside the application journal.");
     }
 }
