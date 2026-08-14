@@ -55,7 +55,10 @@ require(HOST / "Qs3dBootstrapPackageStore.cs", (
 require(HOST / "Qs3dBootstrapBackupWriter.cs", ("BackupPath", "CanLoad", "PublishBackup", "File.Move"))
 require(HOST / "Qs3dBootstrapRecoveryReader.cs", ("RecoveredFromBackup", "PrimaryError", "BackupPath"))
 require(HOST / "StandaloneCadPackageExtensions.cs", ("SaveProjectPackageWithBackup", "OpenProjectPackageWithRecovery"))
-require(HOST / "CadCapabilityValidation.cs", ("Known", "RequireKnown", "unknown flag bits", "At least one CAD capability is required"))
+require(HOST / "CadCapabilityValidation.cs", (
+    "Known", "RequireKnown", "unknown flag bits", "At least one CAD capability is required", "BooleanSolids", "Grips",
+))
+forbid(HOST / "CadCapabilityValidation.cs", ("CustomEntities",))
 require(HOST / "CadBackendPolicy.cs", ("CadBackendKind.Native", "RequireNative", "Production", "Version", "CadCapabilityValidation.RequireKnown"))
 require(HOST / "CadBackendEvidence.cs", ("CadBackendQualificationEvidence", "BackendVersion", "SourceSha", "QualifiedCapabilities", "Passed", "CadCapabilityValidation.RequireKnown"))
 require(HOST / "CadQualifiedBackendSelector.cs", ("SelectProduction", "CadBackendKind.Native", "BackendVersion", "SourceSha", "QualifiedCapabilities", "Duplicate CAD backend ID", "Duplicate CAD qualification evidence ID", "allowNone: false"))
@@ -84,6 +87,7 @@ require(TESTS / "CommandRegistrationModuleSmoke.cs", (
 forbid(TESTS / "CommandRegistrationModuleSmoke.cs", ("Commands.TryResolve", "ReservedCommand"))
 require(TESTS / "CommandLineTokenizerModuleSmoke.cs", ("windowsPath", "ExecuteCommand"))
 require(TESTS / "DocumentLifecycleCleanupModuleSmoke.cs", ("app.Documents.Close", "Lifecycle reopened", "reused stale application journal"))
+require(TESTS / "CadBackendPolicyModuleSmoke.cs", ("BooleanSolids", "Grips", "extendedCapabilities"))
 require(TESTS / "CadBackendQualificationEvidenceJsonModuleSmoke.cs", ("RewriteCapabilities", "1L << 20"))
 for regression in (
     "AdvancedReferenceCommandsModuleSmoke.cs", "DocumentReferenceSurfaceModuleSmoke.cs",
