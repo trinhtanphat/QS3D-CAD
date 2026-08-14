@@ -42,6 +42,17 @@ internal static class CadBackendPolicyModuleSmoke
             (CadCapabilities)(1 << 20),
             true));
 
+        var extendedCapabilities = CadCapabilities.BooleanSolids | CadCapabilities.Grips;
+        var extendedNative = new CadBackendDescriptor(
+            "native.extended",
+            "Extended pinned capability contract",
+            CadBackendKind.Native,
+            extendedCapabilities,
+            isAvailable: true,
+            priority: 1,
+            version: "1.0.0");
+        Equal(extendedCapabilities, extendedNative.Capabilities);
+
         var native = new CadBackendDescriptor(
             "native.test",
             "Qualified native test backend",
@@ -62,7 +73,7 @@ internal static class CadBackendPolicyModuleSmoke
             },
             CadBackendSelectionPolicy.Development()));
 
-        Console.WriteLine("PASS fail-closed CAD backend selection policy");
+        Console.WriteLine("PASS fail-closed CAD backend selection policy and pinned capability contract");
     }
 
     private static void Equal<T>(T expected, T actual) where T : notnull
