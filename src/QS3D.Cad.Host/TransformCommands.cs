@@ -166,7 +166,9 @@ public static class TransformCommands
                 {
                     var entity = tx.Get(handle);
                     if (entity is null) return CommandResult.Failure($"Entity {handle} does not exist.");
-                    transformed.Add(RotateEntity(entity, baseX, baseY, cos, sin));
+                    transformed.Add(ReferencePrimitiveGeometry.TryRotate(entity, baseX, baseY, normalizedDegrees, out var primitive)
+                        ? primitive
+                        : RotateEntity(entity, baseX, baseY, cos, sin));
                 }
 
                 if (radians != 0d)
@@ -227,7 +229,9 @@ public static class TransformCommands
                 {
                     var entity = tx.Get(handle);
                     if (entity is null) return CommandResult.Failure($"Entity {handle} does not exist.");
-                    transformed.Add(MirrorEntity(entity, axisX1, axisY1, ux, uy));
+                    transformed.Add(ReferencePrimitiveGeometry.TryMirror(entity, axisX1, axisY1, ux, uy, out var primitive)
+                        ? primitive
+                        : MirrorEntity(entity, axisX1, axisY1, ux, uy));
                 }
 
                 foreach (var entity in transformed)
