@@ -93,9 +93,10 @@ public sealed class BootstrapDrawingStore
 
         try
         {
-            var entities = dto.Entities.Select(FromEntityDto).ToArray();
+            var entities = dto.Entities.Select(item => FromEntityDto(item, dto.Schema)).ToArray();
             var layers = dto.Schema >= 3 ? dto.Layers!.Select(FromLayerDto).ToArray() : null;
             var blocks = dto.Schema >= 4 ? dto.Blocks!.Select(FromBlockDto).ToArray() : null;
+            if (dto.Schema >= 3) ValidateLayerReferences(entities, blocks, layers!);
             var currentLayer = dto.Schema >= 3 ? dto.CurrentLayerName : null;
             var database = new InMemoryCadDatabase(entities, layers, currentLayer, blocks);
             var document = new InMemoryCadDocument(new DrawingId(dto.DrawingId), dto.Name, database);
@@ -122,11 +123,13 @@ public sealed class BootstrapDrawingStore
         LayerName = entity.LayerName
     };
 
-    private static CadEntitySnapshot FromEntityDto(EntityDto? dto)
+    private static CadEntitySnapshot FromEntityDto(EntityDto? dto, int schema)
     {
         if (dto is null) throw new InvalidDataException("Entity collection contains null.");
         if (string.IsNullOrWhiteSpace(dto.Handle)) throw new InvalidDataException("Entity handle is missing.");
         if (!TryKind(dto.Kind, out var kind)) throw new InvalidDataException($"Unsupported entity kind '{dto.Kind}'.");
+        if (schema >= 3 && string.IsNullOrWhiteSpace(dto.LayerName))
+            throw new InvalidDataException($"Entity {dto.Handle} layer name is missing from modern bootstrap layer state.");
         try
         {
             return new CadEntitySnapshot(
@@ -200,11 +203,41 @@ public sealed class BootstrapDrawingStore
     {
         if (dto is null) throw new InvalidDataException("Block entity collection contains null.");
         if (!TryKind(dto.Kind, out var kind)) throw new InvalidDataException($"Unsupported block entity kind '{dto.Kind}'.");
+        if (string.IsNullOrWhiteSpace(dto.LayerName))
+            throw new InvalidDataException("Block entity layer name is missing from schema-v4 bootstrap layer state.");
         return new CadEntityDraft(
             kind,
             Bounds(dto.Min, dto.Max, "Block entity"),
             dto.Properties is null ? null : CloneProperties(dto.Properties),
-            string.IsNullOrWhiteSpace(dto.LayerName) ? "0" : dto.LayerName);
+            dto.LayerName);
+    }
+
+    private static void ValidateLayerReferences(
+        IReadOnlyList<CadEntitySnapshot> entities,
+        IReadOnlyList<CadBlockDefinitionSnapshot>? blocks,
+        IReadOnlyList<CadLayerSnapshot> layers)
+    {
+        var declared = layers
+            .Select(static layer => layer.Name.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var entity in entities)
+        {
+            var layerName = entity.LayerName.Trim();
+            if (!declared.Contains(layerName))
+                throw new InvalidDataException($"Entity {entity.Handle} references undeclared layer '{entity.LayerName}'.");
+        }
+
+        if (blocks is null) return;
+        foreach (var block in blocks)
+        {
+            foreach (var member in block.Entities)
+            {
+                var layerName = member.LayerName;
+                if (string.IsNullOrWhiteSpace(layerName) || !declared.Contains(layerName.Trim()))
+                    throw new InvalidDataException($"Block '{block.Name}' entity references undeclared layer '{layerName ?? "<missing>"}'.");
+            }
+        }
     }
 
     private static bool TryKind(string? raw, out CadEntityKind kind)
