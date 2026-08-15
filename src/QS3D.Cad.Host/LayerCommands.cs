@@ -10,6 +10,7 @@ public static class LayerCommands
         ArgumentNullException.ThrowIfNull(registry);
         registry.Register(new LayerCommand());
         registry.Register(new ListLayersCommand());
+        PropertyCommands.RegisterAll(registry);
     }
 
     private sealed class ListLayersCommand : ICadCommand
