@@ -27,6 +27,8 @@ public partial class MainWindow
         contextMenu.Items.Add(CreateTransformMenuItem("Scale selected...", "Ctrl+Shift+S", ScaleSelectedDesktopCommand));
         contextMenu.Items.Add(CreateTransformMenuItem("Rotate selected...", "Ctrl+Shift+R", RotateSelectedDesktopCommand));
         contextMenu.Items.Add(CreateTransformMenuItem("Mirror selected...", "Ctrl+Shift+M", MirrorSelectedDesktopCommand));
+
+        RegisterProductivityBindings();
     }
 
     private void RegisterTransformBinding(RoutedUICommand command, Key key, RoutedEventHandler handler)
