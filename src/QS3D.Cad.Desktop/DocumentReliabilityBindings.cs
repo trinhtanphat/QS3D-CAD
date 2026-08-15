@@ -1,8 +1,10 @@
 using System.ComponentModel;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using QS3D.Cad.Host;
 using QS3D.Platform.Cad.Abstractions;
 using QS3D.Platform.Domain;
 
@@ -174,7 +176,7 @@ public partial class MainWindow
     {
         if (_recoveryOffered) return;
         _recoveryOffered = true;
-        IReadOnlyList<QS3D.Cad.Host.StandaloneAutosaveSnapshotInfo> snapshots;
+        IReadOnlyList<StandaloneAutosaveSnapshotInfo> snapshots;
         try { snapshots = _app.DiscoverAutosaves(AutosaveDirectory); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
