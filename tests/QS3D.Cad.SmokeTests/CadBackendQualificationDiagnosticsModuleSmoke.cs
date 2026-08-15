@@ -95,8 +95,8 @@ internal static class CadBackendQualificationDiagnosticsModuleSmoke
         Contains(report.Candidates.Single(item => item.Backend.Id == sourceMismatch.Id).Detail, SourceB, "source mismatch detail");
 
         var reversed = CadQualifiedBackendSelector.EvaluateProduction(
-            candidates.Reverse(),
-            evidence.Reverse(),
+            Enumerable.Reverse(candidates),
+            Enumerable.Reverse(evidence),
             Required,
             SourceA);
         SequenceEqual(
