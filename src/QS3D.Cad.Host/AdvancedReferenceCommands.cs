@@ -14,6 +14,7 @@ public static class AdvancedReferenceCommands
         registry.Register(new ViewCommand());
         registry.Register(new ZoomExtentsCommand());
         registry.Register(new ZoomWindowCommand());
+        ViewportManagementCommands.RegisterAll(registry);
         registry.Register(new HitTestCommand());
         registry.Register(new SnapCommand());
         registry.Register(new SelectPolygonCommand());
@@ -33,7 +34,7 @@ public static class AdvancedReferenceCommands
     private sealed class ZoomExtentsCommand : ICadCommand
     {
         public string Name => "ZOOMEXTENTS";
-        public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ReadOnly;
+        public CommandFlags Flags => CommandFlags.RequiresDocument;
         public CommandResult Execute(CommandContext context)
         {
             if (context.Arguments.Count != 0) return CommandResult.Failure("Usage: ZOOMEXTENTS");
@@ -52,7 +53,7 @@ public static class AdvancedReferenceCommands
     private sealed class ZoomWindowCommand : ICadCommand
     {
         public string Name => "ZOOMWINDOW";
-        public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ReadOnly;
+        public CommandFlags Flags => CommandFlags.RequiresDocument;
         public CommandResult Execute(CommandContext context)
         {
             if (context.Arguments.Count != 4) return CommandResult.Failure("Usage: ZOOMWINDOW x1 y1 x2 y2");
