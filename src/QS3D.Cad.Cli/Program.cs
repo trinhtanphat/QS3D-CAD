@@ -1,3 +1,4 @@
+using QS3D.Cad.Cli;
 using QS3D.Cad.Host;
 using QS3D.Platform.InMemory;
 
@@ -7,6 +8,12 @@ var messageCursor = 0;
 
 if (args.Length != 0)
 {
+    if (CliBatchMode.IsRequested(args))
+    {
+        Environment.ExitCode = CliBatchMode.Execute(app, args, Console.In, Console.Out, Console.Error);
+        return;
+    }
+
     var result = app.ExecuteCommand(args[0], args.Skip(1));
     Console.WriteLine(result.Succeeded ? "OK" : "ERROR");
     DumpMessages(app, ref messageCursor);
@@ -27,6 +34,7 @@ while (true)
             .OrderBy(static name => name, StringComparer.OrdinalIgnoreCase);
         Console.WriteLine(string.Join(", ", commands));
         Console.WriteLine("HELP, EXIT");
+        Console.WriteLine("Batch: --batch <file> [--continue-on-error] | --stdin [--continue-on-error]");
         continue;
     }
     var result = app.Execute(line);
