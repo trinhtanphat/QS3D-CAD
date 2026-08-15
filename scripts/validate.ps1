@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 function Invoke-CheckedNative {
     param(
         [Parameter(Mandatory = $true)][string]$Step,
-        [Parameter(Mandatory = $true)][string$FilePath,
+        [Parameter(Mandatory = $true)][string]$FilePath,
         [Parameter(Mandatory = $true)][string[]]$ArgumentList
     )
 
