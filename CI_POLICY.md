@@ -4,17 +4,25 @@ This file is the repository-level source of truth for CI ownership after multi-a
 
 ## Per-agent task CI
 
-`.github/workflows/ci.yml` is the canonical automatic task-validation workflow. It runs on pushes to `agent/**`, `recovery/**`, `integration/**`, pull requests targeting `main`, pushes to `main`, and manual dispatch.
+`.github/workflows/ci.yml` is the canonical automatic task-validation workflow. It runs for implementation-relevant changes on `agent/**`, `recovery/**`, `integration/**`, pull requests targeting `main`, pushes to `main`, and manual dispatch.
 
-Multiple agents share the workflow definition but every run validates its own exact branch/PR head SHA. Ten independent task branches therefore have ten independent CI results.
+Multiple agents share the workflow definition but every required run validates its own exact branch/PR head SHA. Ten independent implementation task branches therefore have ten independent CI results.
 
-A GitHub Issue is coordination only; it has no source tree to build. CI evidence belongs to the branch/PR SHA referenced by the Issue.
+A GitHub Issue is coordination only; it has no source tree to build. CI evidence belongs to the branch/PR SHA referenced by the Issue when CI is required.
+
+## CI-neutral-only exemption
+
+The full build/test CI is skipped when **all** changed files are limited to documentation or non-executable housekeeping paths configured in `.github/workflows/ci.yml`: `docs/**`, `**/*.md`, `.gitignore`, `.gitattributes`, `.editorconfig`, `LICENSE*`, `NOTICE*`, and GitHub Issue/PR templates.
+
+Docs/Markdown/housekeeping-only tasks may complete without an artificial build CI run after relevant lightweight validation. This exemption is path-based, not commit-message-based. A `chore:` commit still requires normal CI if it changes source, tests, project/build files, dependencies, scripts, workflows, packaging, installer/runtime-affecting configuration, submodule pins, or any other non-ignored path. Mixed changes always run CI.
+
+`.github/workflows/**` is intentionally not ignored, so CI changes test themselves.
 
 ## Mandatory completion gate
 
-An implementation agent must not report a task completed or stop as completed until the required CI run for the **exact current branch/PR head SHA** has conclusion `success`.
+For any task that is not CI-neutral-only, an implementation agent must not report a task completed or stop as completed until the required CI run for the **exact current branch/PR head SHA** has conclusion `success`.
 
-A green run for an older SHA, another branch, another PR, or `main` does not count. Any new task commit invalidates earlier green evidence for completion.
+A green run for an older SHA, another branch, another PR, or `main` does not count. Any new implementation-relevant task commit invalidates earlier green evidence for completion.
 
 If CI fails, keep the lane active, fix the real defect on `agent/<agent>/<scope>` or `recovery/<agent>/<scope>`, push a new SHA and repeat. Never weaken architecture, vendor isolation, persistence, installer, security or test guards merely to obtain green status.
 
@@ -22,7 +30,7 @@ Native DWG/CAD runtime evidence that cannot be proven by repository-safe CI rema
 
 ## Final-tree rule
 
-Canonical progression:
+Canonical progression for implementation-relevant changes:
 
 ```text
 CLAIM_VISIBLE
@@ -39,15 +47,15 @@ CLAIM_VISIBLE
   -> ALL_DONE
 ```
 
-CI success is a completion/quality gate, not direct-main authorization.
+CI-neutral-only work uses the same branch/PR authorization path without manufacturing a build-CI requirement. CI success is a completion/quality gate, not direct-main authorization.
 
 ## Integration
 
-For a multi-agent batch, combine participating work on `integration/<batch-id>`, require green CI for the exact integration head, then perform the reviewed authorized landing. Require green CI again for the exact resulting `main` SHA before reporting `ALL MERGED TO MAIN`.
+For a multi-agent batch, combine participating implementation work on `integration/<batch-id>`, require green CI for the exact integration head when implementation-relevant paths changed, then perform the reviewed authorized landing. Require green CI again for the exact resulting `main` SHA when applicable before reporting `ALL MERGED TO MAIN`.
 
 ## Release boundary
 
-Release/bootstrap workflows are not substitutes for per-agent task CI. Keep publication/tagging/installer-release semantics separate from ordinary branch/PR validation. A task agent should use `.github/workflows/ci.yml` as its mandatory completion evidence unless a task explicitly requires an additional release/native gate.
+Release/bootstrap workflows are not substitutes for per-agent task CI. Keep publication/tagging/installer-release semantics separate from ordinary branch/PR validation. An implementation task agent should use `.github/workflows/ci.yml` as its mandatory completion evidence unless a task explicitly requires an additional release/native gate.
 
 ## Evidence boundaries
 
@@ -57,4 +65,4 @@ Release/bootstrap workflows are not substitutes for per-agent task CI. Keep publ
 
 ## GitHub protection
 
-Repository settings should require the stable `QS3D CAD CI / validate` status for PRs to `main`, require the intended PR/integration path, block force-push and branch deletion, and keep bypass narrow.
+Repository settings should require the stable `QS3D CAD CI / validate` status for implementation PRs to `main`, require the intended PR/integration path, block force-push and branch deletion, and keep bypass narrow. If a future ruleset requires a status on docs-only PRs, use a lightweight status/ruleset condition instead of forcing full build CI for CI-neutral changes.
