@@ -2,22 +2,64 @@ name: QS3D CAD CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "agent/**"
+      - "recovery/**"
+      - "integration/**"
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".editorconfig"
+      - "LICENSE*"
+      - "NOTICE*"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE*"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
   pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".editorconfig"
+      - "LICENSE*"
+      - "NOTICE*"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE*"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout
+      - name: Checkout exact task SHA
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
           submodules: recursive
+
+      - name: Verify exact checkout SHA
+        shell: pwsh
+        run: |
+          $expected = '${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}'.ToLowerInvariant()
+          $actual = (& git rev-parse HEAD).Trim().ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Checkout SHA mismatch: expected $expected, actual $actual" }
+          Write-Host "Exact source SHA: $actual"
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
@@ -55,7 +97,7 @@ jobs:
           Write-Host "Windows x64 installer PASS: $installer"
 
       - name: Retain validated Windows installer
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: QS3D-CAD-${{ github.sha }}-win-x64
