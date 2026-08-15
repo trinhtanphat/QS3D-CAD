@@ -20,6 +20,8 @@ public sealed class StandaloneCadApplication
         Store = new BootstrapDrawingStore();
         BuiltInCommands.RegisterAll(_commands);
         TransformCommands.RegisterAll(_commands);
+        SelectionCommands.RegisterAll(_commands);
+        MeasurementCommands.RegisterAll(_commands);
         LayerCommands.RegisterAll(_commands);
         BlockCommands.RegisterAll(_commands);
         SemanticCommands.RegisterAll(_commands, Projects);
@@ -94,9 +96,13 @@ public sealed class StandaloneCadApplication
         if (document is null) return CommandResult.Failure("No active drawing.");
 
         cancellationToken.ThrowIfCancellationRequested();
-        if (tokens[0].Equals("UNDO", StringComparison.OrdinalIgnoreCase))
+        var requestedName = tokens[0];
+        var commandName = _commands.TryResolve(requestedName, out _)
+            ? requestedName
+            : CommandAliasResolver.Resolve(requestedName);
+        if (commandName.Equals("UNDO", StringComparison.OrdinalIgnoreCase))
             return Undo(document);
-        if (tokens[0].Equals("REDO", StringComparison.OrdinalIgnoreCase))
+        if (commandName.Equals("REDO", StringComparison.OrdinalIgnoreCase))
             return Redo(document);
 
         var databaseRevisionBefore = document.Database.Revision;
@@ -104,7 +110,7 @@ public sealed class StandaloneCadApplication
         CommandResult result;
         try
         {
-            result = _commands.Execute(tokens[0], new CommandContext(document, tokens.Skip(1), cancellationToken));
+            result = _commands.Execute(commandName, new CommandContext(document, tokens.Skip(1), cancellationToken));
         }
         catch
         {

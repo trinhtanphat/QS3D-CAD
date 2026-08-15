@@ -35,7 +35,7 @@ dotnet run --project src/QS3D.Cad.Desktop/QS3D.Cad.Desktop.csproj -c Release
 
 The desktop File menu uses `*.qs3d` project packages. Save publishes through the validated previous-generation backup path; Open uses the recovery reader and reports when a validated `.qs3d.bak` was used. Raw `*.qs3d-bootstrap.json` remains an internal deterministic fixture format and is not the primary desktop project format.
 
-The standalone desktop now exposes an interactive **reference 2D viewport** over the deterministic CAD database: grid/axes, entity rendering, click selection, Line/Rectangle/Circle point picking, Erase/Move workflows, layers/current-layer controls, properties, command/messages panes, keyboard shortcuts, zoom-to-extents and a sample drawing action. This is a usable host-neutral workspace, but it deliberately does **not** claim native DWG rendering until a licensed native viewport adapter is connected.
+The standalone desktop exposes an interactive **reference 2D viewport** over the deterministic CAD database: grid/axes, entity rendering, click selection, Line/Rectangle/Circle point picking, Erase/Move/Copy/Scale/Rotate/Mirror workflows, layers/current-layer controls, properties, command/messages panes, keyboard shortcuts, zoom-to-extents and a sample drawing action. Selection productivity includes Select All/Clear/Invert shortcuts, Select Same Type/Layer context actions and command-line history navigation. This is a usable host-neutral workspace, but it deliberately does **not** claim native DWG rendering until a licensed native viewport adapter is connected.
 
 ## Windows installer and releases
 
@@ -61,11 +61,33 @@ Drawing and document-journal commands include:
 - `LINE x1 y1 x2 y2`
 - `CIRCLE cx cy radius`
 - `RECTANG x1 y1 x2 y2`
-- `MOVE handle dx dy`
+- `MOVE handle... dx dy`
+- `COPY handle... dx dy`
+- `SCALE handle... baseX baseY factor`
+- `ROTATE handle... baseX baseY angleDegrees`
+- `MIRROR handle... axisX1 axisY1 axisX2 axisY2`
 - `SELECT handle...`
 - `ERASE handle...`
 - `LIST`
 - `UNDO`, `REDO` — owned by the coordinated application journal, not the public command registry.
+
+Selection/productivity surfaces include:
+
+- `SELALL`
+- `SELNONE`
+- `SELINVERT`
+- `SELKIND entityKind`
+- `SELLAYER layerName`
+- `SELPROP propertyKey propertyValue`
+- `SELBOX Window|Crossing x1 y1 x2 y2`
+- `DIST x1 y1 x2 y2`
+- `MEASURE handle...`
+
+`MEASURE` currently reports deterministic reference metrics for Line, Circle and the current rectangle-backed Polyline representation. Selection boxes operate on deterministic reference extents. These surfaces improve the standalone editor workflow but are **not** production-kernel/native-DWG qualification.
+
+Common command aliases include `L`, `C`, `REC`, `M`, `CO`/`CP`, `SC`, `RO`, `MI`, `E`, `LA`, `B`, `I`, `ZE`, `ZW`, `U`, `RE`, `DI` and `ME`. Exact explicitly registered command names take precedence over fallback aliases so extension commands are not silently shadowed.
+
+Desktop productivity shortcuts include `Ctrl+Shift+A` (Select All), `Ctrl+Shift+D` (Clear Selection), `Ctrl+Shift+I` (Invert Selection), plus the existing `Ctrl+Shift+S/R/M` transform shortcuts. In the command box, Up/Down navigates typed command history; an empty Enter recalls the most recent typed command so it can be repeated.
 
 Layer/block surfaces include `LAYERS`, `LAYER ...`, `BLOCK`, `INSERT`, `BLOCKS`, `BLOCKDELETE`.
 
