@@ -138,11 +138,11 @@ public sealed class StandaloneDocumentReliability
         if (!_states.TryGetValue(drawingId, out var state) || string.IsNullOrWhiteSpace(state.AutosavePath))
             return false;
         var path = state.AutosavePath;
-        state.AutosavePath = null;
-        state.LastAutosavedUtc = null;
         try
         {
             if (File.Exists(path)) File.Delete(path);
+            state.AutosavePath = null;
+            state.LastAutosavedUtc = null;
             return true;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
