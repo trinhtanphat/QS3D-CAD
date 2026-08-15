@@ -4,7 +4,6 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using QS3D.Cad.Host;
-using QS3D.Platform.Cad.Abstractions;
 using QS3D.Platform.Geometry;
 
 namespace QS3D.Cad.Desktop;
@@ -25,7 +24,7 @@ public partial class MainWindow
 
         ViewportCanvas.PreviewMouseLeftButtonDown += PrecisionViewport_PreviewMouseLeftButtonDown;
         ViewportCanvas.PreviewMouseMove += PrecisionViewport_PreviewMouseMove;
-        PreviewKeyDown += PrecisionWindow_PreviewKeyDown;
+        AddHandler(Keyboard.PreviewKeyDownEvent, new KeyEventHandler(PrecisionWindow_PreviewKeyDown), handledEventsToo: true);
         SelectToolButton.Click += PrecisionToolButton_Click;
         LineToolButton.Click += PrecisionToolButton_Click;
         RectangleToolButton.Click += PrecisionToolButton_Click;
@@ -34,7 +33,10 @@ public partial class MainWindow
     }
 
     private void PrecisionToolButton_Click(object sender, RoutedEventArgs e)
-        => UpdatePrecisionToolStatus();
+    {
+        ClearPrecisionMarker();
+        UpdatePrecisionToolStatus();
+    }
 
     private void PrecisionWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -55,6 +57,10 @@ public partial class MainWindow
                 StatusText.Text = $"Grid snap {OnOff(_gridSnapEnabled)} at current visible grid spacing {CurrentGridSpacing():0.###}.";
                 e.Handled = true;
                 break;
+            case Key.Escape:
+                ClearPrecisionMarker();
+                UpdatePrecisionToolStatus();
+                return;
             default:
                 return;
         }
@@ -157,10 +163,19 @@ public partial class MainWindow
 
     private double CurrentGridSpacing()
     {
-        var spanX = _worldMaxX - _worldMinX;
-        var spanY = _worldMaxY - _worldMinY;
-        var span = Math.Max(spanX, spanY);
-        return NiceGridStep(span / 12d);
+        var span = Math.Max(SafeSpan(_worldMinX, _worldMaxX), SafeSpan(_worldMinY, _worldMaxY));
+        if (!double.IsFinite(span) || span <= 0d) return 100d;
+        var spacing = NiceGridStep(span / 12d);
+        return double.IsFinite(spacing) && spacing > 0d ? spacing : 100d;
+    }
+
+    private static double SafeSpan(double minimum, double maximum)
+    {
+        if (!double.IsFinite(minimum) || !double.IsFinite(maximum)) return double.PositiveInfinity;
+        if (minimum == maximum) return 0d;
+        var scale = Math.Max(Math.Abs(minimum), Math.Abs(maximum));
+        if (scale == 0d) return 0d;
+        return Math.Abs((maximum / scale) - (minimum / scale)) * scale;
     }
 
     private void DrawPrecisionMarker(ReferencePrecisionResult result)
