@@ -56,7 +56,8 @@ A recovered autosave:
 ## Desktop save and close behavior
 
 - `Ctrl+S` saves to the known primary path after the first open/save; if no primary path exists, Save As is shown.
-- `Ctrl+Shift+S` always uses Save As.
+- `Ctrl+Alt+S` always uses Save As.
+- `Ctrl+Shift+S` remains reserved for the existing Scale Selected workflow and is not intercepted by document reliability.
 - The title includes `*` while the active drawing is dirty.
 - A background dispatcher check updates the dirty caption frequently and writes dirty-only autosaves on a two-minute cadence.
 - Application close checks every open document.
