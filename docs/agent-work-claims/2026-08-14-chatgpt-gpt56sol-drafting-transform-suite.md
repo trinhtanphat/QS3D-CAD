@@ -4,7 +4,8 @@
 - Agent: `chatgpt-gpt56sol`
 - Registered: `2026-08-14T23:14:00+07:00`
 - Baseline main SHA: `d9a024f87bc413fed0b32ca96a15fa50c7e4ed26`
-- Implementation branch: `agent/chatgpt-gpt56sol/drafting-transform-suite`
+- Claim landing SHA: `4c3312bb283bd7ec8d2ed6939b42035932957aa7`
+- Implementation branch: `agent/chatgpt-gpt56sol/drafting-transform-suite-v2`
 - Integration batch: `TBD`
 
 ## Reserved scope
@@ -39,6 +40,10 @@ Advance the standalone reference 2D drafting modification baseline with determin
 - undo/redo journal coverage through the existing command host
 - desktop shell source contract for the new selection transform actions
 - applicable GitHub branch/PR checks; exact branch SHA evidence only
+
+## Coordination correction
+
+The first implementation branch ref was created before the claim PR landed and therefore pointed at the pre-claim base. No source/test implementation was committed there. The implementation branch is corrected to the `-v2` branch, which must be created from the post-claim/current-main SHA after this coordination-only correction lands.
 
 ## Completion condition
 
