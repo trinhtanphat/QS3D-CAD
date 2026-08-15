@@ -107,7 +107,10 @@ public static class ReferencePrecisionInput
         {
             var lines = entities
                 .Where(static entity => entity.Kind == CadEntityKind.Line)
-                .Select(static entity => TryLine(entity, out var line) ? (Entity: entity, Line: line, Valid: true) : (Entity: entity, Line: default(LineGeometry), Valid: false))
+                .Where(entity => IsNearBounds(entity.Extents, rawPoint, aperture))
+                .Select(static entity => TryLine(entity, out var line)
+                    ? (Entity: entity, Line: line, Valid: true)
+                    : (Entity: entity, Line: default(LineGeometry), Valid: false))
                 .Where(static item => item.Valid)
                 .ToArray();
             for (var left = 0; left < lines.Length; left++)
@@ -136,6 +139,8 @@ public static class ReferencePrecisionInput
         double aperture,
         CadSnapKind enabledKinds)
     {
+        if (!IsNearBounds(entity.Extents, rawPoint, aperture)) return;
+
         if (entity.Kind == CadEntityKind.Line && TryLine(entity, out var line))
         {
             if ((enabledKinds & CadSnapKind.Endpoint) != 0)
@@ -156,10 +161,14 @@ public static class ReferencePrecisionInput
                 AddCandidate(output, entity.Handle, CadSnapKind.Center, circle.Center, rawPoint, aperture);
             if ((enabledKinds & CadSnapKind.Quadrant) != 0)
             {
-                AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, new Point3(circle.Center.X + circle.Radius, circle.Center.Y), rawPoint, aperture);
-                AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, new Point3(circle.Center.X - circle.Radius, circle.Center.Y), rawPoint, aperture);
-                AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, new Point3(circle.Center.X, circle.Center.Y + circle.Radius), rawPoint, aperture);
-                AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, new Point3(circle.Center.X, circle.Center.Y - circle.Radius), rawPoint, aperture);
+                if (TryOffsetPoint(circle.Center, circle.Radius, 0d, out var right))
+                    AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, right, rawPoint, aperture);
+                if (TryOffsetPoint(circle.Center, -circle.Radius, 0d, out var left))
+                    AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, left, rawPoint, aperture);
+                if (TryOffsetPoint(circle.Center, 0d, circle.Radius, out var top))
+                    AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, top, rawPoint, aperture);
+                if (TryOffsetPoint(circle.Center, 0d, -circle.Radius, out var bottom))
+                    AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, bottom, rawPoint, aperture);
             }
             if ((enabledKinds & CadSnapKind.Nearest) != 0 && TryClosestPointOnCircle(circle, rawPoint, out var nearest))
                 AddCandidate(output, entity.Handle, CadSnapKind.Nearest, nearest, rawPoint, aperture);
@@ -202,6 +211,17 @@ public static class ReferencePrecisionInput
         var distance = Distance2D(rawPoint, point);
         if (double.IsFinite(distance) && distance <= aperture)
             output.Add(new ReferencePrecisionSnap(handle, kind, point, distance));
+    }
+
+    private static bool IsNearBounds(BoundingBox3 bounds, Point3 point, double aperture)
+    {
+        if (!IsFinite(bounds.Min) || !IsFinite(bounds.Max)) return false;
+        var nearest = new Point3(
+            Math.Max(bounds.Min.X, Math.Min(bounds.Max.X, point.X)),
+            Math.Max(bounds.Min.Y, Math.Min(bounds.Max.Y, point.Y)),
+            Math.Max(bounds.Min.Z, Math.Min(bounds.Max.Z, point.Z)));
+        var distance = Distance2D(point, nearest);
+        return double.IsFinite(distance) && distance <= aperture;
     }
 
     private static Point3 SnapToGrid(Point3 point, double spacing)
@@ -247,19 +267,22 @@ public static class ReferencePrecisionInput
             line = new LineGeometry(new Point3(x1, y1), new Point3(x2, y2));
             return true;
         }
-        line = new LineGeometry(entity.Extents.Min, entity.Extents.Max);
-        return IsFinite(line.Start) && IsFinite(line.End);
+        line = default;
+        return false;
     }
 
     private static bool TryCircle(CadEntitySnapshot entity, out CircleGeometry circle)
     {
-        var cx = TryProperty(entity, "cx", out var storedX) ? storedX : Midpoint(entity.Extents.Min.X, entity.Extents.Max.X);
-        var cy = TryProperty(entity, "cy", out var storedY) ? storedY : Midpoint(entity.Extents.Min.Y, entity.Extents.Max.Y);
-        var radius = TryProperty(entity, "radius", out var storedRadius)
-            ? storedRadius
-            : Math.Abs(entity.Extents.Max.X - entity.Extents.Min.X) * 0.5d;
-        circle = new CircleGeometry(new Point3(cx, cy), radius);
-        return IsFinite(circle.Center) && double.IsFinite(radius) && radius > 0d;
+        if (TryProperty(entity, "cx", out var cx)
+            && TryProperty(entity, "cy", out var cy)
+            && TryProperty(entity, "radius", out var radius)
+            && radius > 0d)
+        {
+            circle = new CircleGeometry(new Point3(cx, cy), radius);
+            return true;
+        }
+        circle = default;
+        return false;
     }
 
     private static bool TryRectangle(CadEntitySnapshot entity, out RectangleGeometry rectangle)
@@ -272,8 +295,8 @@ public static class ReferencePrecisionInput
             rectangle = RectangleGeometry.Create(x1, y1, x2, y2);
             return true;
         }
-        rectangle = RectangleGeometry.Create(entity.Extents.Min.X, entity.Extents.Min.Y, entity.Extents.Max.X, entity.Extents.Max.Y);
-        return rectangle.Corners.All(IsFinite);
+        rectangle = default;
+        return false;
     }
 
     private static bool TryProperty(CadEntitySnapshot entity, string key, out double value)
@@ -287,6 +310,11 @@ public static class ReferencePrecisionInput
     private static bool TryClosestPointOnSegment(Point3 start, Point3 end, Point3 point, out Point3 nearest)
     {
         var scale = MaxAbs(start.X, start.Y, end.X, end.Y, point.X, point.Y);
+        if (!double.IsFinite(scale))
+        {
+            nearest = default;
+            return false;
+        }
         if (scale == 0d)
         {
             nearest = start;
@@ -317,7 +345,7 @@ public static class ReferencePrecisionInput
     private static bool TryClosestPointOnCircle(CircleGeometry circle, Point3 point, out Point3 nearest)
     {
         var scale = MaxAbs(circle.Center.X, circle.Center.Y, point.X, point.Y, circle.Radius);
-        if (scale == 0d)
+        if (!double.IsFinite(scale) || scale == 0d)
         {
             nearest = default;
             return false;
@@ -325,16 +353,17 @@ public static class ReferencePrecisionInput
         var dx = (point.X / scale) - (circle.Center.X / scale);
         var dy = (point.Y / scale) - (circle.Center.Y / scale);
         var length = Math.Sqrt((dx * dx) + (dy * dy));
-        if (!double.IsFinite(length) || length <= 1e-15)
+        if (!double.IsFinite(length))
         {
-            nearest = new Point3(circle.Center.X + circle.Radius, circle.Center.Y, circle.Center.Z);
-            return IsFinite(nearest);
+            nearest = default;
+            return false;
         }
+        if (length <= 1e-15)
+            return TryOffsetPoint(circle.Center, circle.Radius, 0d, out nearest);
         var radius = circle.Radius / scale;
-        nearest = new Point3(
-            (circle.Center.X / scale + (dx / length * radius)) * scale,
-            (circle.Center.Y / scale + (dy / length * radius)) * scale,
-            circle.Center.Z);
+        var x = (circle.Center.X / scale + (dx / length * radius)) * scale;
+        var y = (circle.Center.Y / scale + (dy / length * radius)) * scale;
+        nearest = new Point3(x, y, circle.Center.Z);
         return IsFinite(nearest);
     }
 
@@ -343,7 +372,7 @@ public static class ReferencePrecisionInput
         var scale = MaxAbs(
             first.Start.X, first.Start.Y, first.End.X, first.End.Y,
             second.Start.X, second.Start.Y, second.End.X, second.End.Y);
-        if (scale == 0d)
+        if (!double.IsFinite(scale) || scale == 0d)
         {
             point = default;
             return false;
@@ -374,6 +403,19 @@ public static class ReferencePrecisionInput
             return false;
         }
         point = new Point3((px + (t * rx)) * scale, (py + (t * ry)) * scale, 0d);
+        return IsFinite(point);
+    }
+
+    private static bool TryOffsetPoint(Point3 origin, double dx, double dy, out Point3 point)
+    {
+        var x = origin.X + dx;
+        var y = origin.Y + dy;
+        if (!double.IsFinite(x) || !double.IsFinite(y))
+        {
+            point = default;
+            return false;
+        }
+        point = new Point3(x, y, origin.Z);
         return IsFinite(point);
     }
 
