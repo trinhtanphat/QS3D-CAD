@@ -41,6 +41,13 @@ internal static class ViewportManagementCommands
         return value;
     }
 
+    private static Point3 FinitePoint(Point3 point, string label)
+    {
+        if (!double.IsFinite(point.X) || !double.IsFinite(point.Y) || !double.IsFinite(point.Z))
+            throw new InvalidOperationException($"{label} must remain finite.");
+        return point;
+    }
+
     private static bool TryProjection(string token, out CadViewProjection projection)
         => Enum.TryParse(token, true, out projection) && Enum.IsDefined(typeof(CadViewProjection), projection);
 
@@ -90,8 +97,12 @@ internal static class ViewportManagementCommands
                 var projection = CadViewProjection.Orthographic;
                 if (context.Arguments.Count == 12 && !TryProjection(context.Arguments[11], out projection))
                     return CommandResult.Failure($"Unknown view projection '{context.Arguments[11]}'.");
+                var target = FinitePoint(new Point3(
+                    Number(context.Arguments[0], "targetX"),
+                    Number(context.Arguments[1], "targetY"),
+                    Number(context.Arguments[2], "targetZ")), "View target");
                 var view = new CadViewState(
-                    new Point3(Number(context.Arguments[0], "targetX"), Number(context.Arguments[1], "targetY"), Number(context.Arguments[2], "targetZ")),
+                    target,
                     new Vector3(Number(context.Arguments[3], "dirX"), Number(context.Arguments[4], "dirY"), Number(context.Arguments[5], "dirZ")),
                     new Vector3(Number(context.Arguments[6], "upX"), Number(context.Arguments[7], "upY"), Number(context.Arguments[8], "upZ")),
                     Positive(context.Arguments[9], "width"),
@@ -119,10 +130,10 @@ internal static class ViewportManagementCommands
             {
                 var service = Service(context);
                 var current = service.CurrentView;
-                var target = new Point3(
+                var target = FinitePoint(new Point3(
                     Number(context.Arguments[0], "x"),
                     Number(context.Arguments[1], "y"),
-                    context.Arguments.Count == 3 ? Number(context.Arguments[2], "z") : current.Target.Z);
+                    context.Arguments.Count == 3 ? Number(context.Arguments[2], "z") : current.Target.Z), "View target");
                 service.SetView(current with { Target = target });
                 return CommandResult.Success($"View centered at ({target.X:R},{target.Y:R},{target.Z:R}).");
             }
@@ -145,10 +156,10 @@ internal static class ViewportManagementCommands
             {
                 var service = Service(context);
                 var current = service.CurrentView;
-                var target = new Point3(
+                var target = FinitePoint(new Point3(
                     current.Target.X + Number(context.Arguments[0], "dx"),
                     current.Target.Y + Number(context.Arguments[1], "dy"),
-                    current.Target.Z + (context.Arguments.Count == 3 ? Number(context.Arguments[2], "dz") : 0d));
+                    current.Target.Z + (context.Arguments.Count == 3 ? Number(context.Arguments[2], "dz") : 0d)), "Panned view target");
                 service.SetView(current with { Target = target });
                 return CommandResult.Success($"View panned to ({target.X:R},{target.Y:R},{target.Z:R}).");
             }
@@ -219,6 +230,7 @@ internal static class ViewportManagementCommands
             try
             {
                 var view = Service(context).CurrentView;
+                var targetFinite = double.IsFinite(view.Target.X) && double.IsFinite(view.Target.Y) && double.IsFinite(view.Target.Z);
                 var directionLength = view.Direction.Length;
                 var upLength = view.Up.Length;
                 var cx = (view.Direction.Y * view.Up.Z) - (view.Direction.Z * view.Up.Y);
@@ -226,11 +238,12 @@ internal static class ViewportManagementCommands
                 var cz = (view.Direction.X * view.Up.Y) - (view.Direction.Y * view.Up.X);
                 var crossLength = Math.Sqrt((cx * cx) + (cy * cy) + (cz * cz));
                 var aspect = view.Width / view.Height;
-                var healthy = double.IsFinite(directionLength) && directionLength > 0d
+                var healthy = targetFinite
+                    && double.IsFinite(directionLength) && directionLength > 0d
                     && double.IsFinite(upLength) && upLength > 0d
                     && double.IsFinite(crossLength) && crossLength > 0d
                     && double.IsFinite(aspect) && aspect > 0d;
-                var message = $"VIEW health={(healthy ? "healthy" : "unhealthy")} projection={view.Projection} aspect={aspect:R} directionLength={directionLength:R} upLength={upLength:R} basisCrossLength={crossLength:R}.";
+                var message = $"VIEW health={(healthy ? "healthy" : "unhealthy")} targetFinite={targetFinite} projection={view.Projection} aspect={aspect:R} directionLength={directionLength:R} upLength={upLength:R} basisCrossLength={crossLength:R}.";
                 context.Document.Editor.WriteMessage(message);
                 return CommandResult.Success(message);
             }
