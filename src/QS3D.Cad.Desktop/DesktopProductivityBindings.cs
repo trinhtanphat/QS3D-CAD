@@ -16,9 +16,9 @@ public partial class MainWindow
 
     private void RegisterProductivityBindings()
     {
-        RegisterProductivityBinding(SelectAllDesktopCommand, Key.A, ModifierKeys.Control | ModifierKeys.Shift, "Ctrl+Shift+A", "Select all", "SELALL");
-        RegisterProductivityBinding(ClearSelectionDesktopCommand, Key.D, ModifierKeys.Control | ModifierKeys.Shift, "Ctrl+Shift+D", "Clear selection", "SELNONE");
-        RegisterProductivityBinding(InvertSelectionDesktopCommand, Key.I, ModifierKeys.Control | ModifierKeys.Shift, "Ctrl+Shift+I", "Invert selection", "SELINVERT");
+        RegisterProductivityBinding(SelectAllDesktopCommand, Key.A, ModifierKeys.Control | ModifierKeys.Shift, "SELALL");
+        RegisterProductivityBinding(ClearSelectionDesktopCommand, Key.D, ModifierKeys.Control | ModifierKeys.Shift, "SELNONE");
+        RegisterProductivityBinding(InvertSelectionDesktopCommand, Key.I, ModifierKeys.Control | ModifierKeys.Shift, "SELINVERT");
         CommandBox.PreviewKeyDown += CommandBoxHistory_PreviewKeyDown;
 
         var contextMenu = EntityList.ContextMenu ?? new ContextMenu();
@@ -34,18 +34,19 @@ public partial class MainWindow
         contextMenu.Items.Add(CreateActionMenuItem("Select same layer", SelectSameLayer_Click));
     }
 
-    private void RegisterProductivityBinding(RoutedUICommand command, Key key, ModifierKeys modifiers, string gestureText, string label, string commandLine)
+    private void RegisterProductivityBinding(RoutedUICommand command, Key key, ModifierKeys modifiers, string commandLine)
     {
         CommandBindings.Add(new CommandBinding(command, (_, _) => RunCommand(commandLine)));
         InputBindings.Add(new KeyBinding(command, new KeyGesture(key, modifiers)));
     }
 
-    private static MenuItem CreateProductivityMenuItem(string header, string gesture, RoutedUICommand command)
+    private MenuItem CreateProductivityMenuItem(string header, string gesture, RoutedUICommand command)
         => new()
         {
             Header = header,
             InputGestureText = gesture,
-            Command = command
+            Command = command,
+            CommandTarget = this
         };
 
     private MenuItem CreateActionMenuItem(string header, RoutedEventHandler handler)
