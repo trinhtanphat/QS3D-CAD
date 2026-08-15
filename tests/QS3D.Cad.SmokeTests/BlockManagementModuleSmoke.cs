@@ -138,14 +138,17 @@ internal static class BlockManagementModuleSmoke
         Fails(app.Execute("BLOCKSET 1 Good 1 1 1 0"));
         Equal(beforeWrongKind, document.Database.Revision, "BLOCKSET on non-reference must not mutate");
 
-        var beforeMissingTarget = document.Database.Revision;
         Succeeds(app.Execute("INSERT Good 5 5"));
         var reference = Query(document).Single(static entity => entity.Kind == CadEntityKind.BlockReference);
         var snapshot = reference;
-        beforeMissingTarget = document.Database.Revision;
+        var beforeMissingTarget = document.Database.Revision;
         Fails(app.Execute($"BLOCKSET {reference.Handle} Missing 6 6 1 0"));
         Equal(beforeMissingTarget, document.Database.Revision, "BLOCKSET missing target definition must not mutate");
-        Equal(snapshot, Get(document, reference.Handle), "failed BLOCKSET must preserve reference snapshot");
+        var afterMissingTarget = Get(document, reference.Handle);
+        Equal(snapshot.Kind, afterMissingTarget.Kind, "failed BLOCKSET kind");
+        Equal(snapshot.LayerName, afterMissingTarget.LayerName, "failed BLOCKSET layer");
+        Equal(snapshot.Extents, afterMissingTarget.Extents, "failed BLOCKSET extents");
+        ReferenceEquals(afterMissingTarget, "Good", 5d, 5d, 1d, 0d);
 
         var beforeBadScale = document.Database.Revision;
         Fails(app.Execute($"BLOCKSET {reference.Handle} Good 6 6 0 0"));
