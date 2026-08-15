@@ -104,7 +104,7 @@ internal static class ReferencePrecisionInputModuleSmoke
             0d,
             new ReferencePrecisionSettings(false, false, true, 1e-308, CadSnapKind.None)));
 
-        if (document.Database.Revision != originalRevision + 5)
+        if (document.Database.Revision != originalRevision + 4)
             throw new InvalidOperationException("Precision resolution must not mutate the drawing revision.");
         var selection = document.Editor.Selection.Current.ToArray();
         if (selection.Length != 1 || selection[0] != diagonal.Handle)
