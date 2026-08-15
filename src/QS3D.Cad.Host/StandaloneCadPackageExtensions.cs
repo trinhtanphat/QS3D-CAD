@@ -10,6 +10,7 @@ public static class StandaloneCadPackageExtensions
         var document = application.Documents.ActiveDocument as InMemoryCadDocument
             ?? throw new InvalidOperationException("No standalone document is active.");
         new Qs3dBootstrapBackupWriter().Save(document, application.Projects.Get(document), path);
+        application.MarkProjectSaved(document, path);
     }
 
     public static Qs3dBootstrapRecoveryLoadResult OpenProjectPackageWithRecovery(this StandaloneCadApplication application, string path)
@@ -20,6 +21,7 @@ public static class StandaloneCadPackageExtensions
         try
         {
             application.Projects.Attach(result.Document, result.Project);
+            application.MarkProjectOpened(result.Document, result.SourcePath);
             return result;
         }
         catch
