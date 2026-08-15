@@ -126,6 +126,13 @@ internal static class ViewportNavigationModuleSmoke
 
         Equal(before, Service(document).CurrentView, "failed viewport commands must preserve state");
         Equal(revision, document.Database.Revision, "failed viewport commands must preserve database revision");
+
+        Succeeds(app.Execute("VIEWSET 1e308 2 3 0 0 -1 0 1 0 80 40 Orthographic"));
+        var huge = Service(document).CurrentView;
+        Fails(app.Execute("VIEWPAN 1e308 0"));
+        Equal(huge, Service(document).CurrentView, "pan overflow must fail closed instead of storing an infinite target");
+        Equal(revision, document.Database.Revision, "pan overflow must preserve database revision");
+        Succeeds(app.Execute("VIEWHEALTH"));
     }
 
     private static void DocumentIsolation()
