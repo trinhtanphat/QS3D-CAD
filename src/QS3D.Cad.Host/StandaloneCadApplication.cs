@@ -13,6 +13,8 @@ public sealed class StandaloneCadApplication
 
     public StandaloneCadApplication()
     {
+        Reliability = new StandaloneDocumentReliability();
+        Autosaves = new StandaloneAutosaveService();
         Projects = new StandaloneSemanticWorkspace();
         Documents = new StandaloneDocumentManager(OnDocumentOpened, OnDocumentClosed);
         _commands = new CommandRegistry();
@@ -35,6 +37,8 @@ public sealed class StandaloneCadApplication
     public StandaloneSemanticWorkspace Projects { get; }
     public StandaloneCommandCatalog Commands { get; }
     public BootstrapDrawingStore Store { get; }
+    public StandaloneDocumentReliability Reliability { get; }
+    public StandaloneAutosaveService Autosaves { get; }
 
     public ICadDocument NewDocument(string name) => Documents.CreateNew(name);
 
@@ -61,6 +65,61 @@ public sealed class StandaloneCadApplication
         var document = Documents.ActiveDocument as InMemoryCadDocument
             ?? throw new InvalidOperationException("No bootstrap document is active.");
         Store.Save(document, Projects.Get(document), path);
+    }
+
+    public StandaloneDocumentReliabilitySnapshot GetDocumentReliability(ICadDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        return Reliability.GetSnapshot(document, Projects.Revision(document));
+    }
+
+    public IReadOnlyList<StandaloneAutosaveSnapshotInfo> DiscoverAutosaves(string directory)
+        => Autosaves.Discover(directory);
+
+    public IReadOnlyList<StandaloneAutosaveSnapshotInfo> AutosaveDirtyDocuments(string directory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
+        var written = new List<StandaloneAutosaveSnapshotInfo>();
+        foreach (var document in Documents.Documents.OfType<InMemoryCadDocument>())
+        {
+            var semanticRevision = Projects.Revision(document);
+            Reliability.ObserveExternalMutation(document, semanticRevision);
+            if (!Reliability.GetSnapshot(document, semanticRevision).IsDirty) continue;
+
+            var path = Autosaves.Save(document, Projects.Get(document), directory);
+            var writtenUtc = new DateTimeOffset(File.GetLastWriteTimeUtc(path));
+            Reliability.MarkAutosaved(document, path, writtenUtc);
+            written.Add(new StandaloneAutosaveSnapshotInfo(path, document.Id, document.Name, writtenUtc));
+        }
+        return written;
+    }
+
+    public ICadDocument OpenAutosaveSnapshot(string path)
+    {
+        var loaded = Autosaves.Load(path);
+        Documents.Open(loaded.Document);
+        try
+        {
+            Projects.Attach(loaded.Document, loaded.Project);
+            Reliability.MarkRecovered(loaded.Document, Projects.Revision(loaded.Document), path);
+            return loaded.Document;
+        }
+        catch
+        {
+            Documents.Close(loaded.Document.Id);
+            throw;
+        }
+    }
+
+    public bool DiscardAutosave(DrawingId drawingId) => Reliability.TryDiscardAutosave(drawingId);
+
+    internal void MarkProjectOpened(ICadDocument document, string path)
+        => Reliability.MarkOpened(document, Projects.Revision(document), path);
+
+    internal void MarkProjectSaved(ICadDocument document, string path)
+    {
+        Reliability.MarkSaved(document, Projects.Revision(document), path);
+        Reliability.TryDiscardAutosave(document.Id);
     }
 
     public CommandResult Execute(string commandLine, CancellationToken cancellationToken = default)
@@ -96,6 +155,7 @@ public sealed class StandaloneCadApplication
         if (document is null) return CommandResult.Failure("No active drawing.");
 
         cancellationToken.ThrowIfCancellationRequested();
+        Reliability.ObserveExternalMutation(document, Projects.Revision(document));
         var requestedName = tokens[0];
         var commandName = _commands.TryResolve(requestedName, out _)
             ? requestedName
@@ -127,11 +187,13 @@ public sealed class StandaloneCadApplication
     {
         Projects.Ensure(document);
         EnsureHistory(document.Id);
+        Reliability.OnOpened(document, Projects.Revision(document));
     }
 
     private void OnDocumentClosed(DrawingId drawingId)
     {
         Projects.Detach(drawingId);
+        Reliability.OnClosed(drawingId);
         _undo.Remove(drawingId);
         _redo.Remove(drawingId);
     }
@@ -139,11 +201,19 @@ public sealed class StandaloneCadApplication
     private void RecordMutation(ICadDocument document, long databaseRevisionBefore, long semanticRevisionBefore)
     {
         var databaseChanged = document.Database.Revision != databaseRevisionBefore;
-        var semanticChanged = Projects.Revision(document) != semanticRevisionBefore;
+        var semanticRevisionAfter = Projects.Revision(document);
+        var semanticChanged = semanticRevisionAfter != semanticRevisionBefore;
         if (!databaseChanged && !semanticChanged) return;
 
+        var transition = Reliability.RecordMutation(document, semanticRevisionAfter);
         var (undo, redo) = EnsureHistory(document.Id);
-        undo.Push(new HistoryEntry(databaseChanged, semanticChanged, document.Database.Revision, Projects.Revision(document)));
+        undo.Push(new HistoryEntry(
+            databaseChanged,
+            semanticChanged,
+            document.Database.Revision,
+            semanticRevisionAfter,
+            transition.BeforeStateId,
+            transition.AfterStateId));
         redo.Clear();
     }
 
@@ -162,7 +232,9 @@ public sealed class StandaloneCadApplication
         undo.Pop();
         if (entry.SemanticChanged) Projects.Undo(document);
         if (entry.DatabaseChanged) document.Database.History.Undo();
-        redo.Push(new HistoryEntry(entry.DatabaseChanged, entry.SemanticChanged, document.Database.Revision, Projects.Revision(document)));
+        var semanticRevision = Projects.Revision(document);
+        Reliability.RestoreState(document, semanticRevision, entry.BeforeStateId);
+        redo.Push(entry with { DatabaseRevision = document.Database.Revision, SemanticRevision = semanticRevision });
         var result = CommandResult.Success("Undo complete.");
         document.Editor.WriteMessage(result.Message!);
         return result;
@@ -183,7 +255,9 @@ public sealed class StandaloneCadApplication
         redo.Pop();
         if (entry.DatabaseChanged) document.Database.History.Redo();
         if (entry.SemanticChanged) Projects.Redo(document);
-        undo.Push(new HistoryEntry(entry.DatabaseChanged, entry.SemanticChanged, document.Database.Revision, Projects.Revision(document)));
+        var semanticRevision = Projects.Revision(document);
+        Reliability.RestoreState(document, semanticRevision, entry.AfterStateId);
+        undo.Push(entry with { DatabaseRevision = document.Database.Revision, SemanticRevision = semanticRevision });
         var result = CommandResult.Success("Redo complete.");
         document.Editor.WriteMessage(result.Message!);
         return result;
@@ -210,5 +284,11 @@ public sealed class StandaloneCadApplication
         return (undo, redo);
     }
 
-    private sealed record HistoryEntry(bool DatabaseChanged, bool SemanticChanged, long DatabaseRevision, long SemanticRevision);
+    private sealed record HistoryEntry(
+        bool DatabaseChanged,
+        bool SemanticChanged,
+        long DatabaseRevision,
+        long SemanticRevision,
+        long BeforeStateId,
+        long AfterStateId);
 }
