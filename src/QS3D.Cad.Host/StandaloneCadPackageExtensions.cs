@@ -21,7 +21,7 @@ public static class StandaloneCadPackageExtensions
         try
         {
             application.Projects.Attach(result.Document, result.Project);
-            application.MarkProjectOpened(result.Document, result.SourcePath);
+            application.MarkProjectOpened(result.Document, path);
             return result;
         }
         catch
