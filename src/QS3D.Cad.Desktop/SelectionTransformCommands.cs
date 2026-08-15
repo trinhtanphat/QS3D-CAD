@@ -7,12 +7,21 @@ namespace QS3D.Cad.Desktop;
 public partial class MainWindow
 {
     private void MoveSelection_Click(object sender, RoutedEventArgs e)
-        => PrepareSelectionTransform("MOVE", "Move");
+        => PrepareSelectionTransform("MOVE", "Move", "100 0", "dx dy");
 
     private void CopySelection_Click(object sender, RoutedEventArgs e)
-        => PrepareSelectionTransform("COPY", "Copy");
+        => PrepareSelectionTransform("COPY", "Copy", "100 0", "dx dy");
 
-    private void PrepareSelectionTransform(string command, string operation)
+    private void ScaleSelection_Click(object sender, RoutedEventArgs e)
+        => PrepareSelectionTransform("SCALE", "Scale", "0 0 2", "baseX baseY factor");
+
+    private void RotateSelection_Click(object sender, RoutedEventArgs e)
+        => PrepareSelectionTransform("ROTATE", "Rotate", "0 0 90", "baseX baseY angleDegrees");
+
+    private void MirrorSelection_Click(object sender, RoutedEventArgs e)
+        => PrepareSelectionTransform("MIRROR", "Mirror", "0 0 100 0", "axisX1 axisY1 axisX2 axisY2");
+
+    private void PrepareSelectionTransform(string command, string operation, string defaultArguments, string parameterHint)
     {
         var selected = _app.Documents.ActiveDocument?.Editor.Selection.Current.ToArray()
             ?? Array.Empty<QS3D.Platform.Domain.CadHandle>();
@@ -23,10 +32,10 @@ public partial class MainWindow
         }
 
         var handles = string.Join(" ", selected.Select(static handle => QuoteToken(handle.ToString())));
-        CommandBox.Text = $"{command} {handles} 100 0";
+        CommandBox.Text = $"{command} {handles} {defaultArguments}";
         CommandBox.SelectAll();
         CommandBox.Focus();
-        StatusText.Text = $"{operation} prepared for {selected.Length} object(s). Edit dx/dy in the command line, then press Enter.";
+        StatusText.Text = $"{operation} prepared for {selected.Length} object(s). Edit {parameterHint} in the command line, then press Enter.";
     }
 
     private void EntityListMulti_SelectionChanged(object sender, SelectionChangedEventArgs e)
