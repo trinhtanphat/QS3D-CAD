@@ -40,7 +40,7 @@ public static class CliBatchMode
 
         try
         {
-            var lines = options!.UseStdin ? ReadLines(stdin) : File.ReadLines(options.FilePath!);
+            var lines = options!.UseStdin ? ReadAllLines(stdin) : File.ReadAllLines(options.FilePath!);
             return new CliBatchRunner(app).Run(lines, output, options.ContinueOnError).ExitCode;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
@@ -113,10 +113,12 @@ public static class CliBatchMode
         return true;
     }
 
-    private static IEnumerable<string> ReadLines(TextReader reader)
+    private static string[] ReadAllLines(TextReader reader)
     {
+        var lines = new List<string>();
         while (reader.ReadLine() is { } line)
-            yield return line;
+            lines.Add(line);
+        return lines.ToArray();
     }
 
     private static string OneLine(string? value)
