@@ -21,9 +21,9 @@ public partial class MainWindow
         "CAD",
         "Autosave");
 
-    protected override void OnSourceInitialized(EventArgs e)
+    private void InitializeDocumentReliabilityBindings()
     {
-        base.OnSourceInitialized(e);
+        if (_documentReliabilityTimer is not null) return;
         _nextAutosaveUtc = DateTimeOffset.UtcNow.AddMinutes(2);
         _documentReliabilityTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
         {
@@ -39,10 +39,13 @@ public partial class MainWindow
     {
         if ((Keyboard.Modifiers & ModifierKeys.Control) != 0 && e.Key == Key.S)
         {
-            var forceSaveAs = (Keyboard.Modifiers & ModifierKeys.Shift) != 0;
-            SaveReliabilityAware(forceSaveAs);
-            e.Handled = true;
-            return;
+            var forceSaveAs = (Keyboard.Modifiers & ModifierKeys.Alt) != 0;
+            if ((Keyboard.Modifiers & ModifierKeys.Shift) == 0 || forceSaveAs)
+            {
+                SaveReliabilityAware(forceSaveAs);
+                e.Handled = true;
+                return;
+            }
         }
         base.OnPreviewKeyDown(e);
     }
