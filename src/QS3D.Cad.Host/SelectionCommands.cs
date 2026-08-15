@@ -17,6 +17,7 @@ public static class SelectionCommands
         registry.Register(new SelectLayerCommand());
         registry.Register(new SelectPropertyCommand());
         registry.Register(new SelectBoxCommand());
+        SelectionSetManagementCommands.RegisterAll(registry);
     }
 
     private static IReadOnlyList<CadEntitySnapshot> Query(CommandContext context)
