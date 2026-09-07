@@ -5,11 +5,11 @@ public static class ProductFamilyManifestValidator
     public const long MaxComponentBytes = 512L * 1024 * 1024;
     public const int MaxComponents = 32;
 
-    private static readonly HashSet<string> AllowedRepositories = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly IReadOnlyDictionary<string, string> ProductRepositories = new Dictionary<string, string>(StringComparer.Ordinal)
     {
-        "trinhtanphat/QS3D-AutoCAD",
-        "trinhtanphat/QS3D-BricsCAD",
-        "trinhtanphat/QS3D-CAD"
+        ["autocad"] = "trinhtanphat/QS3D-AutoCAD",
+        ["bricscad"] = "trinhtanphat/QS3D-BricsCAD",
+        ["standalone"] = "trinhtanphat/QS3D-CAD"
     };
 
     public static void Validate(ProductFamilyManifest manifest)
@@ -25,14 +25,14 @@ public static class ProductFamilyManifestValidator
         foreach (var component in manifest.Components)
         {
             if (component is null) throw new InvalidDataException("components contains null.");
-            RequireNonBlank(component.Id, "component.id");
+            RequireToken(component.Id, "component.id");
             RequireNonBlank(component.Product, "component.product");
-            RequireNonBlank(component.HostGeneration, "component.hostGeneration");
+            RequireToken(component.HostGeneration, "component.hostGeneration");
             RequireNonBlank(component.Qualification, "component.qualification");
             if (!ids.Add(component.Id)) throw new InvalidDataException($"Duplicate component id '{component.Id}'.");
             if (!productGenerations.Add(component.Product + "\u001f" + component.HostGeneration))
                 throw new InvalidDataException($"Duplicate product/host generation '{component.Product}/{component.HostGeneration}'.");
-            if (component.Product is not ("autocad" or "bricscad" or "standalone"))
+            if (!ProductRepositories.TryGetValue(component.Product, out var expectedRepository))
                 throw new InvalidDataException($"Unsupported product '{component.Product}'.");
 
             var hasPackageMetadata = new string?[]
@@ -44,11 +44,11 @@ public static class ProductFamilyManifestValidator
             if (!component.Enabled && !hasPackageMetadata) continue;
 
             RequireNonBlank(component.Repository, "component.repository");
-            if (!AllowedRepositories.Contains(component.Repository!))
-                throw new InvalidDataException($"Repository '{component.Repository}' is not allowed.");
+            if (!string.Equals(component.Repository, expectedRepository, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"Repository '{component.Repository}' does not belong to product '{component.Product}'.");
             RequireNonBlank(component.ReleaseTag, "component.releaseTag");
             RequireSha(component.SourceSha, 40, "component.sourceSha");
-            RequireNonBlank(component.AssetName, "component.assetName");
+            RequireSafeAssetName(component.AssetName);
             RequireSha(component.Sha256, 64, "component.sha256");
             if (component.Bytes is null or <= 0 || component.Bytes > MaxComponentBytes)
                 throw new InvalidDataException($"component.bytes must be between 1 and {MaxComponentBytes}.");
@@ -60,11 +60,21 @@ public static class ProductFamilyManifestValidator
             if ((packageKind == "exe" && strategy != "execute") || (packageKind == "zip" && strategy != "extract"))
                 throw new InvalidDataException("Package kind and install strategy are inconsistent.");
             if (packageKind is not ("exe" or "zip")) throw new InvalidDataException("Unsupported package kind.");
-            if (packageKind == "zip" && component.Enabled && string.IsNullOrWhiteSpace(component.Destination))
-                throw new InvalidDataException("Enabled ZIP components require an explicit destination contract.");
+            if (packageKind == "zip" && component.Enabled) ValidateZipDestination(component.Destination);
 
             ValidateDownloadUrl(component);
         }
+    }
+
+    private static void ValidateZipDestination(string? destination)
+    {
+        RequireNonBlank(destination, "component.destination");
+        var expanded = Environment.ExpandEnvironmentVariables(destination!);
+        if (!Path.IsPathFullyQualified(expanded)) throw new InvalidDataException("Enabled ZIP destination must be fully qualified after environment expansion.");
+        var full = Path.GetFullPath(expanded).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var root = Path.GetPathRoot(full)?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (string.IsNullOrWhiteSpace(root) || string.Equals(full, root, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Enabled ZIP destination must not be a filesystem root.");
     }
 
     private static void ValidateDownloadUrl(ProductComponent component)
@@ -77,6 +87,20 @@ public static class ProductFamilyManifestValidator
         var expectedPath = $"/{component.Repository}/releases/download/{Uri.EscapeDataString(component.ReleaseTag!)}/{Uri.EscapeDataString(component.AssetName!)}";
         if (!string.Equals(uri.AbsolutePath, expectedPath, StringComparison.Ordinal))
             throw new InvalidDataException("component.downloadUrl does not match repository/tag/asset identity.");
+    }
+
+    private static void RequireSafeAssetName(string? value)
+    {
+        RequireNonBlank(value, "component.assetName");
+        if (value is "." or ".." || value!.IndexOfAny(new[] { '/', '\\' }) >= 0 || value.Any(char.IsControl))
+            throw new InvalidDataException("component.assetName must be a single safe file name.");
+    }
+
+    private static void RequireToken(string? value, string name)
+    {
+        RequireNonBlank(value, name);
+        if (value!.Length > 80 || value.Any(c => !(char.IsLetterOrDigit(c) || c is '.' or '_' or '-')))
+            throw new InvalidDataException($"{name} contains unsupported characters.");
     }
 
     private static void RequireNonBlank(string? value, string name)
