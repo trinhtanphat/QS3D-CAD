@@ -12,14 +12,15 @@ public static class PackageVerifier
 {
     public static void Verify(string path, ProductComponent component)
     {
-        if (component.Bytes is null || string.IsNullOrWhiteSpace(component.Sha256))
+        var sha256 = component.Sha256;
+        if (component.Bytes is null || string.IsNullOrWhiteSpace(sha256))
             throw new InvalidDataException("Package integrity metadata is incomplete.");
         var info = new FileInfo(path);
         if (!info.Exists || info.Length != component.Bytes.Value)
             throw new InvalidDataException("Downloaded package length does not match manifest.");
         using var stream = File.OpenRead(path);
         var actual = SHA256.HashData(stream);
-        var expected = Convert.FromHexString(component.Sha256);
+        var expected = Convert.FromHexString(sha256);
         if (!CryptographicOperations.FixedTimeEquals(actual, expected))
             throw new InvalidDataException("Downloaded package SHA-256 does not match manifest.");
     }
@@ -42,11 +43,13 @@ public sealed class HttpPackageDownloader : IPackageDownloader, IDisposable
         if (File.Exists(destination)) throw new IOException("Download destination already exists.");
         if (component.Bytes is null or <= 0 || component.Bytes > ProductFamilyManifestValidator.MaxComponentBytes)
             throw new InvalidDataException("Manifest package size is outside the bounded download policy.");
+        var downloadUrl = component.DownloadUrl;
+        if (string.IsNullOrWhiteSpace(downloadUrl)) throw new InvalidDataException("Manifest package download URL is missing.");
         var directory = Path.GetDirectoryName(destination) ?? throw new InvalidDataException("Download destination has no parent directory.");
         Directory.CreateDirectory(directory);
         try
         {
-            using var response = await _client.GetAsync(component.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            using var response = await _client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (response.StatusCode is >= HttpStatusCode.MultipleChoices and < HttpStatusCode.BadRequest)
                 throw new InvalidDataException("Package download redirects are not accepted; manifest must identify final GitHub bytes.");
             response.EnsureSuccessStatusCode();
