@@ -7,6 +7,8 @@ TOOL = ROOT / "tools" / "QS3D.ProductBootstrapper"
 MANIFEST = ROOT / "installer" / "product-family.manifest.json"
 ENGINEERING_MANIFEST = ROOT / "installer" / "product-family.engineering.manifest.json"
 PACKAGE_SCRIPT = ROOT / "scripts" / "package-family-bootstrapper.ps1"
+FAMILY_RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release-family-windows.yml"
+AUTOCAD_HANDOFF_SCRIPT = ROOT / "scripts" / "invoke-autocad-native-qualification-handoff.ps1"
 errors: list[str] = []
 
 AUTOCAD_ENGINEERING = {
@@ -34,6 +36,8 @@ required = [
     MANIFEST,
     ENGINEERING_MANIFEST,
     PACKAGE_SCRIPT,
+    FAMILY_RELEASE_WORKFLOW,
+    AUTOCAD_HANDOFF_SCRIPT,
     ROOT / "docs" / "PRODUCT-FAMILY-INSTALLER.md",
 ]
 for path in required:
@@ -63,6 +67,15 @@ try:
                 errors.append(f"production manifest component {component.get('id')} must not reference engineering test release {release_tag}")
             if component.get("enabled") is True and "engineering" in qualification:
                 errors.append(f"production-enabled component {component.get('id')} must not carry engineering qualification")
+            if component.get("enabled") is True and component.get("product") == "autocad" and release_tag.startswith("test-v"):
+                errors.append(f"production-enabled AutoCAD component {component.get('id')} must not reference engineering test release")
+            if (
+                component.get("enabled") is True
+                and component.get("product") == "bricscad"
+                and component.get("packageKind") == "zip"
+                and not str(component.get("destination") or "").strip()
+            ):
+                errors.append(f"production-enabled BricsCAD ZIP component {component.get('id')} requires explicit destination")
         for generation in AUTOCAD_GENERATIONS:
             component = by_key.get(("autocad", generation))
             if not component: errors.append(f"missing AutoCAD {generation} manifest component")
@@ -105,6 +118,33 @@ if PACKAGE_SCRIPT.is_file():
     package_text = PACKAGE_SCRIPT.read_text(encoding="utf-8", errors="replace")
     if "product-family.engineering.manifest.json" not in package_text:
         errors.append("family bootstrapper package must ship the engineering qualification manifest")
+
+if FAMILY_RELEASE_WORKFLOW.is_file():
+    workflow_text = FAMILY_RELEASE_WORKFLOW.read_text(encoding="utf-8", errors="replace")
+    workflow_tokens = (
+        "workflow_dispatch",
+        "confirm_release",
+        "source_sha",
+        "RELEASE",
+        "family-v",
+        "git merge-base --is-ancestor",
+        "origin/main",
+        "scripts/package-family-bootstrapper.ps1",
+        "QS3D-Family-Setup-win-x64.exe",
+        "QS3D-Family-Setup-win-x64.exe.sha256",
+        "product-family.manifest.json",
+        "product-family.manifest.json.sha256",
+        "product-family.engineering.manifest.json",
+        "product-family.engineering.manifest.json.sha256",
+        "gh release view",
+        "gh release upload",
+        "gh release create",
+    )
+    for token in workflow_tokens:
+        if token not in workflow_text:
+            errors.append(f"family release workflow missing required token: {token}")
+    if "push:" in workflow_text and "tags:" in workflow_text:
+        errors.append("family release workflow must remain manual-dispatch only in this lane")
 
 if errors:
     print("QS3D product-family bootstrapper guard FAILED", file=sys.stderr)
