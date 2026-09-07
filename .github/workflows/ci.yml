@@ -40,6 +40,10 @@ jobs:
         shell: pwsh
         run: ./scripts/validate.ps1
 
+      - name: Run product-family bootstrapper validation
+        shell: pwsh
+        run: ./scripts/validate-family-bootstrapper.ps1
+
       - name: Build Windows x64 installer smoke
         shell: pwsh
         run: |
