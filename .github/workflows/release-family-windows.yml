@@ -1,0 +1,231 @@
+name: QS3D Family Windows Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_release:
+        description: "Type RELEASE to publish the family preview from the selected source"
+        required: true
+        type: string
+      source_sha:
+        description: "Exact lowercase 40-character QS3D-CAD source SHA"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release-family:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact family release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Validate family release identity
+        id: identity
+        shell: pwsh
+        env:
+          RELEASE_CONFIRMATION: ${{ inputs.confirm_release }}
+          RELEASE_SOURCE_INPUT: ${{ inputs.source_sha }}
+        run: |
+          if ($env:RELEASE_CONFIRMATION -ne 'RELEASE') {
+            throw 'Manual family release requires confirm_release=RELEASE.'
+          }
+          if ($env:RELEASE_SOURCE_INPUT -cnotmatch '^[0-9a-f]{40}$') {
+            throw 'Manual family release requires exact lowercase 40-character source_sha.'
+          }
+
+          $sourceSha = (git rev-parse HEAD).Trim().ToLowerInvariant()
+          if ($sourceSha -ne $env:RELEASE_SOURCE_INPUT) {
+            throw "Checked-out SHA '$sourceSha' does not match requested source '$env:RELEASE_SOURCE_INPUT'."
+          }
+
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+            throw "VERSION is not release-safe: '$version'."
+          }
+          $tag = "family-v$version"
+
+          git fetch origin main --no-tags
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to refresh origin/main.' }
+          git merge-base --is-ancestor $sourceSha origin/main
+          if ($LASTEXITCODE -ne 0) {
+            throw "Family release source $sourceSha is not an ancestor of origin/main."
+          }
+
+          git fetch --force --tags origin
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to refresh repository tags.' }
+          $matchingTags = @(git tag --list $tag)
+          if ($LASTEXITCODE -ne 0) { throw "Unable to inspect family tag '$tag'." }
+          $tagExists = $matchingTags.Count -gt 0
+          if ($tagExists) {
+            $tagTarget = (git rev-list -n 1 $tag).Trim().ToLowerInvariant()
+            if ($tagTarget -ne $sourceSha) {
+              throw "Family tag '$tag' points to '$tagTarget', not requested source '$sourceSha'."
+            }
+          }
+
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "tag_exists=$($tagExists.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "source_sha=$sourceSha" >> $env:GITHUB_OUTPUT
+
+      - name: Validate and package family distribution
+        shell: pwsh
+        run: |
+          ./scripts/validate.ps1
+          ./scripts/validate-family-bootstrapper.ps1
+          ./scripts/package-family-bootstrapper.ps1 -SkipValidation
+
+          $files = @(
+            'artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe',
+            'artifacts/family-bootstrapper/product-family.manifest.json',
+            'artifacts/family-bootstrapper/product-family.engineering.manifest.json'
+          )
+          foreach ($file in $files) {
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
+              throw "Family package is missing '$file'."
+            }
+            $sidecar = "$file.sha256"
+            if (-not (Test-Path -LiteralPath $sidecar -PathType Leaf)) {
+              throw "Family package is missing checksum '$sidecar'."
+            }
+            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant()
+            $sidecarText = (Get-Content -LiteralPath $sidecar -Raw).Trim()
+            if ($sidecarText -notmatch '^(?<hash>[0-9a-fA-F]{64})\s{2}(?<name>.+)$') {
+              throw "Invalid SHA-256 sidecar format: $sidecar"
+            }
+            if ($Matches.hash.ToLowerInvariant() -ne $actual) {
+              throw "SHA-256 mismatch for '$file'."
+            }
+            if ($Matches.name -ne [IO.Path]::GetFileName($file)) {
+              throw "SHA-256 sidecar filename mismatch for '$file'."
+            }
+          }
+
+      - name: Upload exact family candidate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: QS3D-Family-${{ steps.identity.outputs.source_sha }}-win-x64
+          path: |
+            artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe
+            artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe.sha256
+            artifacts/family-bootstrapper/product-family.manifest.json
+            artifacts/family-bootstrapper/product-family.manifest.json.sha256
+            artifacts/family-bootstrapper/product-family.engineering.manifest.json
+            artifacts/family-bootstrapper/product-family.engineering.manifest.json.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish family GitHub prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_TAG_EXISTS: ${{ steps.identity.outputs.tag_exists }}
+          RELEASE_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+          RELEASE_VERSION: ${{ steps.identity.outputs.version }}
+        run: |
+          $assets = @(
+            'artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe',
+            'artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe.sha256',
+            'artifacts/family-bootstrapper/product-family.manifest.json',
+            'artifacts/family-bootstrapper/product-family.manifest.json.sha256',
+            'artifacts/family-bootstrapper/product-family.engineering.manifest.json',
+            'artifacts/family-bootstrapper/product-family.engineering.manifest.json.sha256'
+          )
+          $title = "QS3D Family $env:RELEASE_TAG"
+          $notes = @"
+          QS3D product-family Windows preview $env:RELEASE_VERSION.
+
+          Source SHA: $env:RELEASE_SOURCE_SHA
+
+          Contains the family bootstrapper plus production and engineering manifests. Production vendor-host components remain fail-closed until their native/signing/release gates are satisfied. The engineering manifest is for licensed-host qualification and is not native PASS.
+          "@
+
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            if ($env:RELEASE_TAG_EXISTS -ne 'true') {
+              throw "A release exists for '$env:RELEASE_TAG' but its tag was not resolved."
+            }
+            $existing = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease | ConvertFrom-Json
+            if ($existing.tagName -ne $env:RELEASE_TAG) { throw 'Existing family release tag mismatch.' }
+            if (-not [bool]$existing.isPrerelease) { throw 'Existing family release must remain a prerelease.' }
+            gh release upload $env:RELEASE_TAG @assets --clobber --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to refresh family release assets.' }
+            gh release edit $env:RELEASE_TAG --title $title --notes $notes --prerelease --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to refresh family release metadata.' }
+          }
+          elseif ($env:RELEASE_TAG_EXISTS -eq 'true') {
+            gh release create $env:RELEASE_TAG @assets --verify-tag --title $title --notes $notes --prerelease --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to create family release from existing exact-source tag.' }
+          }
+          else {
+            gh release create $env:RELEASE_TAG @assets --target $env:RELEASE_SOURCE_SHA --title $title --notes $notes --prerelease --repo $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw 'Failed to create family release and tag.' }
+          }
+
+      - name: Verify published family release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.identity.outputs.tag }}
+          RELEASE_SOURCE_SHA: ${{ steps.identity.outputs.source_sha }}
+        run: |
+          $expected = [ordered]@{
+            'QS3D-Family-Setup-win-x64.exe' = 'artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe'
+            'QS3D-Family-Setup-win-x64.exe.sha256' = 'artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe.sha256'
+            'product-family.manifest.json' = 'artifacts/family-bootstrapper/product-family.manifest.json'
+            'product-family.manifest.json.sha256' = 'artifacts/family-bootstrapper/product-family.manifest.json.sha256'
+            'product-family.engineering.manifest.json' = 'artifacts/family-bootstrapper/product-family.engineering.manifest.json'
+            'product-family.engineering.manifest.json.sha256' = 'artifacts/family-bootstrapper/product-family.engineering.manifest.json.sha256'
+          }
+
+          $view = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,assets | ConvertFrom-Json
+          if ($view.tagName -ne $env:RELEASE_TAG) { throw 'Published family release tag mismatch.' }
+          if (-not [bool]$view.isPrerelease) { throw 'Published family release must be a prerelease.' }
+          $names = @($view.assets | ForEach-Object { [string]$_.name })
+          if ($names.Count -ne $expected.Count) {
+            throw "Published family release must contain exactly $($expected.Count) assets; found $($names.Count)."
+          }
+          foreach ($name in $expected.Keys) {
+            if ($names -notcontains $name) { throw "Published family release is missing '$name'." }
+          }
+          foreach ($name in $names) {
+            if (-not $expected.Contains($name)) { throw "Published family release contains unexpected asset '$name'." }
+          }
+
+          $remote = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_TAG" | ConvertFrom-Json
+          foreach ($name in $expected.Keys) {
+            $path = $expected[$name]
+            $asset = @($remote.assets | Where-Object { $_.name -eq $name })
+            if ($asset.Count -ne 1) { throw "Expected exactly one remote asset named '$name'." }
+            $localItem = Get-Item -LiteralPath $path
+            if ([int64]$asset[0].size -ne [int64]$localItem.Length) {
+              throw "Published asset size mismatch for '$name'."
+            }
+            $localHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $path).Hash.ToLowerInvariant()
+            $remoteDigest = [string]$asset[0].digest
+            if (-not [string]::IsNullOrWhiteSpace($remoteDigest) -and $remoteDigest.ToLowerInvariant() -ne "sha256:$localHash") {
+              throw "Published asset digest mismatch for '$name'."
+            }
+          }
+
+          git fetch --force --tags origin
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to refresh tags for final family release verification.' }
+          $publishedTarget = (git rev-list -n 1 $env:RELEASE_TAG).Trim().ToLowerInvariant()
+          if ($publishedTarget -ne $env:RELEASE_SOURCE_SHA) {
+            throw "Published family tag points to '$publishedTarget', expected '$env:RELEASE_SOURCE_SHA'."
+          }
+          Write-Host "QS3D Family release verification PASS: $env:RELEASE_TAG -> $publishedTarget"
