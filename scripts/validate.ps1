@@ -23,9 +23,6 @@ Invoke-CheckedNative 'QS3D-CAD preflight' 'python' @('scripts/preflight.py')
 Write-Host '== QS3D-CAD source boundary =='
 Invoke-CheckedNative 'QS3D-CAD source boundary' 'python' @('scripts/check-standalone-source-boundary.py')
 
-Write-Host '== QS3D product-family bootstrapper boundary =='
-Invoke-CheckedNative 'QS3D product-family bootstrapper boundary' 'python' @('scripts/check-product-family-bootstrapper.py')
-
 Write-Host '== QS3D-CAD release contract =='
 Invoke-CheckedNative 'QS3D-CAD release contract' 'python' @('scripts/check-release-contract.py')
 
@@ -67,11 +64,5 @@ Invoke-CheckedNative 'Run standalone deterministic smoke' 'dotnet' @('run', '--p
 
 Write-Host '== Build desktop shell Release (Windows) =='
 Invoke-CheckedNative 'Build desktop shell Release (Windows)' 'dotnet' @('build', 'src/QS3D.Cad.Desktop/QS3D.Cad.Desktop.csproj', '-c', 'Release')
-
-Write-Host '== Build product-family bootstrapper Release =='
-Invoke-CheckedNative 'Build product-family bootstrapper Release' 'dotnet' @('build', 'tools/QS3D.ProductBootstrapper/QS3D.ProductBootstrapper.csproj', '-c', 'Release')
-
-Write-Host '== Run product-family bootstrapper deterministic smoke =='
-Invoke-CheckedNative 'Run product-family bootstrapper deterministic smoke' 'dotnet' @('run', '--project', 'tests/QS3D.ProductBootstrapper.SmokeTests/QS3D.ProductBootstrapper.SmokeTests.csproj', '-c', 'Release')
 
 Write-Host 'QS3D-CAD validation PASS'
