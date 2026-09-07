@@ -1,6 +1,6 @@
 # Work claim — AutoCAD engineering qualification manifest
 
-- Status: `SOURCE_READY`
+- Status: `COMPLETED`
 - Agent: `chatgpt-gpt56sol`
 - Registered: `2026-09-07T14:43:00+07:00`
 - Baseline main SHA: `68f7633b2dc797ea22a371fa5a6fdcad24ddc40a`
@@ -8,8 +8,10 @@
 - Claim PR: `#50`
 - Implementation branch: `agent/chatgpt-gpt56sol/autocad-engineering-qualification-20260907`
 - Implementation PR: `#51`
-- Validated source head: `c28d5e4a296979232c2847ff0113794f17802cac`
-- Exact source-head CI: `QS3D CAD CI` run `34098146402` / run #143 / job `101666264157` — `SUCCESS`
+- Final PR head: `af3a41a4f74c2534e7a3eeb34d3481e8653c838e`
+- Integrated source main SHA: `c7d2de1da015964a25be8b4b5adcf6e2104dea99`
+- Exact PR-head CI: `QS3D CAD CI` run `34098577026` / run #145 — `SUCCESS`
+- Exact merged-main CI: `QS3D CAD CI` run `34102494114` / run #146 / job `101679881734` — `SUCCESS`
 
 ## Delivered scope
 
@@ -22,11 +24,11 @@
   - bytes `67998359`;
   - SHA-256 `9452fd0bac1ece086393499f11716d265f0a49d8266ddd2cc47d55bc9d3a07de`.
 - Engineering components are enabled only inside the engineering manifest for exact-generation native-test planning and explicitly carry `engineering` / `not-native-pass` qualification text.
-- Production `installer/product-family.manifest.json` remains fail-closed: every AutoCAD component is `enabled=false`, no production component embeds a `test-v*` package, and qualification now reflects source-integrated + engineering-candidate-available + native/signing pending.
+- Production `installer/product-family.manifest.json` remains fail-closed: every AutoCAD component is `enabled=false`, no production component embeds a `test-v*` package, and qualification reflects source-integrated + engineering-candidate-available + native/signing pending.
 - AutoCAD 2026 production state retains the explicit native CLR 8/10 runtime-matrix boundary.
 - Family boundary guard locks exact engineering candidate identity and rejects any production `test-v*` package drift.
 - C# smoke loads and validates both production and engineering manifests through the strict schema loader.
-- Family-bootstrapper packaging now ships production + engineering manifests and SHA-256 sidecars, then runs no-mutation dry-runs on both packaged manifests.
+- Family-bootstrapper packaging ships production + engineering manifests and SHA-256 sidecars, then runs no-mutation dry-runs on both packaged manifests.
 - Documentation specifies exact-generation engineering usage and preserves the native/signing evidence boundary.
 
 ## TDD evidence
@@ -43,13 +45,30 @@
 - authoritative validation PASS;
 - family gate failed exactly with `family bootstrapper package must ship the engineering qualification manifest`.
 
-### GREEN
+### GREEN source
 - exact source head `c28d5e4a296979232c2847ff0113794f17802cac`;
 - CI run `34098146402` / #143: `SUCCESS`;
 - authoritative validation PASS;
 - product-family boundary/build/C# smoke PASS;
 - Windows x64 standalone installer smoke PASS;
 - product-family bootstrapper package smoke PASS.
+
+### Final PR head
+- exact head `af3a41a4f74c2534e7a3eeb34d3481e8653c838e`;
+- CI run `34098577026` / #145: `SUCCESS`;
+- authoritative validation PASS;
+- product-family validation PASS;
+- Windows x64 installer smoke PASS;
+- dual-manifest family package smoke PASS.
+
+### Integrated main
+- PR #51 merged as `c7d2de1da015964a25be8b4b5adcf6e2104dea99`;
+- exact-main CI run `34102494114` / #146 / job `101679881734`: `SUCCESS`;
+- authoritative validation PASS;
+- product-family validation PASS;
+- Windows x64 installer smoke PASS;
+- dual-manifest family package smoke PASS;
+- validated Windows artifact retention PASS.
 
 ## Native/release boundary
 
@@ -62,10 +81,10 @@
 ## Completion verdict
 
 - `SOURCE IMPLEMENTATION: COMPLETE`
-- `EXACT SOURCE-HEAD CI: GREEN`
-- `READY_FOR_REVIEW: YES`
+- `MERGED TO MAIN: YES`
+- `EXACT-MAIN CI: GREEN`
 - `PRODUCTION ENABLEMENT: NO / FAIL-CLOSED`
 - `AUTOCAD NATIVE QUALIFICATION: PENDING_NATIVE`
-- `MERGED TO MAIN: NO`
+- `SOURCE LANE STATUS: 100% COMPLETE`
 
-Final PR-head CI and current-main drift audit remain required before landing.
+This source/distribution lane is terminal. Future licensed-host native evidence or production enablement must use the native/release trackers and a new scoped change; this claim must not be reopened to manufacture native PASS from hosted CI.
