@@ -24,6 +24,12 @@ try {
     Write-Host '== Run product-family bootstrapper deterministic smoke =='
     Invoke-CheckedNative 'Run product-family bootstrapper deterministic smoke' 'dotnet' @('run', '--project', 'tests/QS3D.ProductBootstrapper.SmokeTests/QS3D.ProductBootstrapper.SmokeTests.csproj', '-c', 'Release')
 
+    Write-Host '== AutoCAD native qualification handoff smoke =='
+    Invoke-CheckedNative 'AutoCAD native qualification handoff smoke' 'pwsh' @(
+        '-NoProfile', '-File', 'scripts/invoke-autocad-native-qualification-handoff.ps1',
+        '-HostGeneration', '2026', '-DryRunBootstrapper'
+    )
+
     Write-Host 'QS3D product-family bootstrapper validation PASS'
 }
 finally {
