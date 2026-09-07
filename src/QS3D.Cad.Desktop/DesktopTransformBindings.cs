@@ -29,6 +29,7 @@ public partial class MainWindow
         contextMenu.Items.Add(CreateTransformMenuItem("Mirror selected...", "Ctrl+Shift+M", MirrorSelectedDesktopCommand));
 
         RegisterProductivityBindings();
+        InitializeDocumentReliabilityBindings();
     }
 
     private void RegisterTransformBinding(RoutedUICommand command, Key key, RoutedEventHandler handler)
