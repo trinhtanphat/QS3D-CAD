@@ -14,6 +14,8 @@ try {
     if (-not $SkipValidation) {
         & (Join-Path $root "scripts\validate.ps1")
         if ($LASTEXITCODE -ne 0) { throw "QS3D CAD validation failed with exit code $LASTEXITCODE." }
+        & (Join-Path $root "scripts\validate-family-bootstrapper.ps1")
+        if ($LASTEXITCODE -ne 0) { throw "QS3D family bootstrapper validation failed with exit code $LASTEXITCODE." }
     }
 
     $publishDir = Join-Path $root "artifacts\family-bootstrapper\publish"
