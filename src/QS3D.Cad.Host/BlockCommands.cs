@@ -15,6 +15,7 @@ public static class BlockCommands
         registry.Register(new InsertBlockCommand());
         registry.Register(new ListBlocksCommand());
         registry.Register(new DeleteBlockCommand());
+        BlockManagementCommands.RegisterAll(registry);
     }
 
     private static double Number(string token, string label)
@@ -80,6 +81,7 @@ public static class BlockCommands
                 using var tx = context.Document.Database.BeginTransaction();
                 var handle = tx.InsertBlock(context.Arguments[0], new Point3(x, y), scale, degrees * Math.PI / 180d);
                 tx.Commit();
+                context.Document.Editor.Selection.Set(new[] { handle });
                 return CommandResult.Success($"Inserted block '{context.Arguments[0]}' as {handle}.");
             }
             catch (Exception ex) when (ex is ArgumentException or FormatException or InvalidOperationException or KeyNotFoundException or OverflowException)
@@ -114,6 +116,9 @@ public static class BlockCommands
             try
             {
                 using var tx = context.Document.Database.BeginTransaction();
+                var owners = BlockManagementCommands.DefinitionOwnersReferencing(tx.GetBlocks(), context.Arguments[0]);
+                if (owners.Count > 0)
+                    return CommandResult.Failure($"Block '{context.Arguments[0]}' cannot be erased while block definition(s) reference it: {string.Join(", ", owners)}.");
                 tx.EraseBlock(context.Arguments[0]);
                 tx.Commit();
                 return CommandResult.Success($"Deleted block '{context.Arguments[0]}'.");
