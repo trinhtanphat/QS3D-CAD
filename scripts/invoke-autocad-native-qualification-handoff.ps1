@@ -4,6 +4,7 @@ param(
     [ValidateSet('2021','2022','2023','2024','2025','2026','2027')]
     [string]$HostGeneration,
     [string]$AutoCADRepositoryPath,
+    [string]$ManifestPath,
     [switch]$DryRunBootstrapper
 )
 
@@ -11,12 +12,21 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $root = Split-Path -Parent $PSScriptRoot
-$manifestPath = Join-Path $root 'installer\product-family.engineering.manifest.json'
-if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
-    throw "Engineering family manifest was not found: $manifestPath"
+$resolvedManifestPath = if ([string]::IsNullOrWhiteSpace($ManifestPath)) {
+    Join-Path $root 'installer\product-family.engineering.manifest.json'
 }
+elseif ([IO.Path]::IsPathRooted($ManifestPath)) {
+    $ManifestPath
+}
+else {
+    Join-Path $root $ManifestPath
+}
+if (-not (Test-Path -LiteralPath $resolvedManifestPath -PathType Leaf)) {
+    throw "Engineering family manifest was not found: $resolvedManifestPath"
+}
+$resolvedManifestPath = (Resolve-Path -LiteralPath $resolvedManifestPath).Path
 
-$manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json -Depth 32
+$manifest = Get-Content -Raw -LiteralPath $resolvedManifestPath | ConvertFrom-Json -Depth 32
 $matches = @($manifest.components | Where-Object {
     [string]$_.product -eq 'autocad' -and [string]$_.hostGeneration -eq $HostGeneration
 })
@@ -59,14 +69,14 @@ foreach ($key in $expected.Keys) {
 if ($DryRunBootstrapper) {
     $packagedExe = Join-Path $root 'artifacts\family-bootstrapper\QS3D-Family-Setup-win-x64.exe'
     if (Test-Path -LiteralPath $packagedExe -PathType Leaf) {
-        & $packagedExe --manifest $manifestPath --dry-run
+        & $packagedExe --manifest $resolvedManifestPath --dry-run
         if ($LASTEXITCODE -ne 0) {
             throw "Packaged family bootstrapper manifest-wide dry-run failed with exit code $LASTEXITCODE."
         }
     }
     else {
         $project = Join-Path $root 'tools\QS3D.ProductBootstrapper\QS3D.ProductBootstrapper.csproj'
-        & dotnet run --project $project -c Release -- --manifest $manifestPath --dry-run
+        & dotnet run --project $project -c Release -- --manifest $resolvedManifestPath --dry-run
         if ($LASTEXITCODE -ne 0) {
             throw "Family bootstrapper manifest-wide dry-run failed with exit code $LASTEXITCODE."
         }
