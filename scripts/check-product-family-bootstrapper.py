@@ -6,6 +6,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "QS3D.ProductBootstrapper"
 MANIFEST = ROOT / "installer" / "product-family.manifest.json"
 ENGINEERING_MANIFEST = ROOT / "installer" / "product-family.engineering.manifest.json"
+PACKAGE_SCRIPT = ROOT / "scripts" / "package-family-bootstrapper.ps1"
 errors: list[str] = []
 
 AUTOCAD_ENGINEERING = {
@@ -32,6 +33,7 @@ required = [
     TOOL / "BootstrapperCoordinator.cs",
     MANIFEST,
     ENGINEERING_MANIFEST,
+    PACKAGE_SCRIPT,
     ROOT / "docs" / "PRODUCT-FAMILY-INSTALLER.md",
 ]
 for path in required:
@@ -98,6 +100,11 @@ if ENGINEERING_MANIFEST.is_file():
                         errors.append(f"engineering AutoCAD {generation} {key} drifted from exact CI #266 candidate")
     except Exception as exc:
         errors.append(f"could not parse engineering family manifest: {exc}")
+
+if PACKAGE_SCRIPT.is_file():
+    package_text = PACKAGE_SCRIPT.read_text(encoding="utf-8", errors="replace")
+    if "product-family.engineering.manifest.json" not in package_text:
+        errors.append("family bootstrapper package must ship the engineering qualification manifest")
 
 if errors:
     print("QS3D product-family bootstrapper guard FAILED", file=sys.stderr)
