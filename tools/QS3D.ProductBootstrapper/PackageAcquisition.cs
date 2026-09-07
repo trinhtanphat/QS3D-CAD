@@ -62,19 +62,21 @@ public sealed class HttpPackageDownloader : IPackageDownloader, IDisposable
             if (response.Content.Headers.ContentLength is long declared && declared != component.Bytes.Value)
                 throw new InvalidDataException("HTTP content length does not match manifest.");
             await using var input = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-            var buffer = new byte[81920];
-            long total = 0;
-            while (true)
+            await using (var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
             {
-                var read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
-                if (read == 0) break;
-                total += read;
-                if (total > component.Bytes.Value || total > ProductFamilyManifestValidator.MaxComponentBytes)
-                    throw new InvalidDataException("Downloaded package exceeded the declared/bounded size.");
-                await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                var buffer = new byte[81920];
+                long total = 0;
+                while (true)
+                {
+                    var read = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                    if (read == 0) break;
+                    total += read;
+                    if (total > component.Bytes.Value || total > ProductFamilyManifestValidator.MaxComponentBytes)
+                        throw new InvalidDataException("Downloaded package exceeded the declared/bounded size.");
+                    await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                }
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
-            await output.FlushAsync(cancellationToken).ConfigureAwait(false);
             PackageVerifier.Verify(destination, component);
         }
         catch
