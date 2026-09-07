@@ -10,12 +10,17 @@ public static class XrefReferenceCommands
     {
         ArgumentNullException.ThrowIfNull(registry);
         registry.Register(new Command());
+        XrefManagementCommands.RegisterAll(registry);
     }
 
     private sealed class Command : ICadCommand
     {
         public string Name => "XREFREF";
-        public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ReadOnly;
+
+        // Legacy compatibility wrapper mixes LIST with lifecycle mutations, so it must not
+        // advertise the stronger ReadOnly or ModifiesDrawing contract. New explicit commands
+        // expose precise flags per operation.
+        public CommandFlags Flags => CommandFlags.RequiresDocument;
 
         public CommandResult Execute(CommandContext context)
         {
