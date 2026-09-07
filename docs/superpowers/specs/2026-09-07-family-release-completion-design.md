@@ -32,19 +32,20 @@ This design intentionally distinguishes three meanings of "complete":
 
 Add a dedicated GitHub Actions workflow, separate from the standalone `release-windows.yml` workflow. The family workflow owns only distribution of the already-existing product-family bootstrapper package.
 
-The workflow supports explicit `workflow_dispatch` with:
+The workflow supports explicit `workflow_dispatch` with exactly:
 
 - `confirm_release=RELEASE`;
-- exact lowercase 40-character `source_sha`;
-- a family release version/tag input or a deterministic tag derived from the checked-in `VERSION` plus a family suffix, with one unambiguous convention selected in implementation.
+- exact lowercase 40-character `source_sha`.
 
-The workflow must checkout the exact source SHA, require that source to be reachable from current `origin/main`, run existing authoritative validation plus family validation, invoke `scripts/package-family-bootstrapper.ps1`, verify all generated sidecars, then publish a GitHub prerelease.
+The family release tag is deterministic and has no free-form tag input: it is exactly `family-v$VERSION`, where `VERSION` is the checked-in release-safe version from the exact source commit. With the current `VERSION=0.1.0-preview.5`, the intended first family tag is `family-v0.1.0-preview.5` unless `VERSION` changes through a separately reviewed source change before publication.
+
+The workflow must checkout the exact source SHA, require that source to be reachable from current `origin/main`, validate `VERSION`, run existing authoritative validation plus family validation, invoke `scripts/package-family-bootstrapper.ps1`, verify all generated sidecars, then publish a GitHub prerelease.
 
 The release must never silently reuse or overwrite an existing tag that points at a different source SHA. Existing same-tag/same-source preview assets may be refreshed only if their prerelease state and source identity match exactly.
 
 ### 2. Family release asset contract
 
-Every family preview release must contain exactly the user-consumable family distribution set:
+Every family preview release contains exactly six user-consumable family distribution assets:
 
 - `QS3D-Family-Setup-win-x64.exe`;
 - `QS3D-Family-Setup-win-x64.exe.sha256`;
@@ -53,9 +54,9 @@ Every family preview release must contain exactly the user-consumable family dis
 - `product-family.engineering.manifest.json`;
 - `product-family.engineering.manifest.json.sha256`.
 
-A small release provenance JSON may be added if implementation can reuse an existing provenance pattern without duplicating domain logic. If added, it must bind the exact QS3D-CAD source SHA, family release tag/version and SHA-256/length of every published asset.
+This lane does not add a seventh provenance JSON file. Exact release provenance is represented by the immutable source/tag check plus the six assets and their SHA-256 sidecars. Vendor package provenance remains inside the manifests themselves.
 
-The workflow must fetch its own published release metadata after upload and verify tag identity, prerelease state and required asset names. Where GitHub exposes asset digests, the workflow should compare those to local SHA-256 values; otherwise the checked-in sidecar content and exact-source package build remain the primary integrity evidence.
+The workflow must fetch its own published release metadata after upload and verify tag identity, prerelease state and the exact six required asset names. Where GitHub exposes asset digests, the workflow compares those to local SHA-256 values; otherwise the checked-in sidecar content and exact-source package build remain the integrity evidence.
 
 ### 3. Production manifest remains fail-closed
 
@@ -86,26 +87,27 @@ Clarify `generatedFromSource` so it never implies something false.
 
 For the production family manifest, the field represents the `QS3D-CAD` source commit that last changed the family manifest state, not the vendor package source. Vendor exact source remains in each component's `sourceSha`.
 
-For the engineering manifest, `generatedFromSource` continues to identify the vendor engineering candidate source where the current schema/guard contract intentionally treats it as candidate provenance. If that dual meaning is too ambiguous for one field, implementation should instead introduce a schema-compatible qualification/provenance field only if doing so can be done without breaking the existing strict schema and consumers; otherwise preserve current schema and document the semantic distinction explicitly.
+For the engineering manifest, `generatedFromSource` continues to identify the vendor engineering candidate source because existing guard/schema behavior already treats it as candidate provenance. This lane does not change schema 1. Documentation must explicitly distinguish these two semantics so the same field is not misread as cross-repository source identity.
 
-No schema change is required merely to refresh stale metadata.
+The production manifest should refresh its currently stale `generatedFromSource` value to the exact implementation source commit that changes its qualification/provenance state. The engineering manifest remains pinned to AutoCAD candidate source `8dd65a7e5061430f76e027467261beb8f18c69a8`.
 
 ### 6. Native qualification operator entrypoint
 
 Do not duplicate AutoCAD's native evidence implementation inside QS3D-CAD. `QS3D-AutoCAD` remains authoritative for `new-native-acceptance.ps1`, runtime/result recorders and final validator.
 
-QS3D-CAD should provide one operator-facing family handoff script or documented command sequence that:
+QS3D-CAD provides one operator-facing family handoff script that:
 
-1. identifies the exact engineering AutoCAD component for a requested generation;
-2. verifies the manifest pins CI #266 source/tag/asset/hash/bytes;
-3. optionally runs the family bootstrapper in `--dry-run` mode;
-4. prints the exact AutoCAD repository commands needed to create/record/validate that generation's native evidence;
-5. never writes a passing evidence result itself;
-6. exits nonzero for missing/disabled/mismatched engineering component metadata.
+1. accepts one exact AutoCAD generation from 2021 through 2027;
+2. loads `installer/product-family.engineering.manifest.json` through deterministic JSON validation or a narrowly equivalent source-safe check;
+3. verifies the selected component pins CI #266 source/tag/asset/hash/bytes exactly;
+4. optionally runs the family bootstrapper in `--dry-run` mode;
+5. prints the exact `QS3D-AutoCAD` repository commands needed to create/record/validate that generation's native evidence;
+6. never writes a passing evidence result itself;
+7. exits nonzero for missing/disabled/mismatched engineering component metadata.
 
-If practical without cross-repo checkout assumptions, the script may accept a path to a local `QS3D-AutoCAD` checkout and invoke its native-session creator. The default behavior must remain read-only/instructional when that checkout is absent.
+The script may accept an optional path to a local `QS3D-AutoCAD` checkout. When supplied, it may verify that the expected native-acceptance scripts exist and print paths relative to that checkout, but it must not mark checks PASS automatically. When the checkout is absent, behavior remains read-only/instructional.
 
-The operator workflow must explicitly cover AutoCAD 2021, 2022, 2023, 2024, 2025, 2026 and 2027 individually. Passing one legacy R24.x host must not be represented as passing the other legacy generations.
+The operator workflow explicitly covers AutoCAD 2021, 2022, 2023, 2024, 2025, 2026 and 2027 individually. Passing one legacy R24.x host must not be represented as passing the other legacy generations.
 
 ### 7. BricsCAD handoff
 
@@ -120,7 +122,7 @@ For V25, the family manifest already pins preview `v0.1.0-preview.10316`. Produc
 
 For V26, require the analogous durable release, exact native evidence and install contract before enabling.
 
-This lane may add fail-closed validation that refuses enabled BricsCAD ZIP entries without explicit destination metadata. It must not invent a destination from assumptions about BricsCAD installation directories.
+Add fail-closed family validation that refuses any enabled BricsCAD ZIP component without explicit destination metadata. It must not invent a destination from assumptions about BricsCAD installation directories.
 
 ### 8. Tracker hygiene
 
@@ -136,13 +138,18 @@ Issue #53 owns only family release/distribution tooling and should close when th
 
 ## Release naming
 
-Use a distinct family preview tag namespace so it cannot collide with standalone `v0.1.0-preview.N` tags. Recommended form:
+The family release namespace is exactly:
 
-`family-v0.1.0-preview.N`
+`family-v<contents-of-VERSION>`
 
-The workflow should not be triggered by generic `v*` tags, because that would overlap the standalone release workflow. Prefer explicit `workflow_dispatch` for the first family preview and optionally a narrow `family-v*` tag trigger only after deterministic behavior is tested.
+Examples:
 
-For the first publication after this implementation, use the checked-in product version as the base and publish a family-specific preview tag from the exact integrated main SHA. The exact ordinal is chosen only after checking existing family tags immediately before publication.
+- `VERSION=0.1.0-preview.5` -> `family-v0.1.0-preview.5`;
+- `VERSION=0.1.0` -> `family-v0.1.0`.
+
+The family workflow is not triggered by generic `v*` tags, because that namespace belongs to the standalone release workflow. The first implementation uses explicit `workflow_dispatch`; no automatic family tag trigger is required in this lane.
+
+Immediately before publication, the workflow checks whether `family-v$VERSION` already exists. Same tag with a different source is a hard failure. Same tag and same source may refresh the six assets only after prerelease-state verification.
 
 ## Testing strategy
 
@@ -154,13 +161,14 @@ Add deterministic source validation that initially fails because the dedicated f
 
 - exact-source checkout / ancestry validation;
 - explicit release confirmation for manual dispatch;
+- deterministic `family-v$VERSION` tag construction;
 - dedicated family package invocation;
 - all six required assets;
 - same-tag source-identity protection;
 - post-publication verification;
 - no generic standalone-release asset substitution.
 
-Add a second fail-closed guard if needed for manifest/native boundary behavior, such as rejecting enabled production AutoCAD components that reference engineering tags or rejecting enabled BricsCAD ZIP components without explicit destination contract.
+Add a second fail-closed guard for manifest/native boundaries: reject enabled production AutoCAD components that reference engineering tags and reject enabled BricsCAD ZIP components without explicit destination contract.
 
 ### GREEN gates
 
@@ -171,7 +179,7 @@ The implementation is green only when:
 - family bootstrapper build/C# smoke passes;
 - family package smoke produces executable + both manifests + three SHA sidecars;
 - family release workflow source guard passes;
-- any new qualification handoff script has deterministic no-host unit/source smoke coverage;
+- the qualification handoff script has deterministic no-host smoke coverage for all seven AutoCAD generations and mismatch rejection;
 - exact PR-head CI is successful.
 
 ### Integration and publication
@@ -181,14 +189,14 @@ After explicit main-integration authorization:
 1. refresh current `main` and verify no overlap/drift;
 2. merge the final carrier with expected head SHA;
 3. require exact-main CI success;
-4. run the dedicated family release workflow against that exact main SHA;
-5. verify the published family prerelease tag targets the same SHA;
-6. verify the six required release assets and SHA sidecars;
-7. record release URL/tag/source/digests in issue #53 and terminal claim closeout.
+4. dispatch the dedicated family release workflow with `confirm_release=RELEASE` and that exact main SHA;
+5. verify published tag `family-v$VERSION` targets the same SHA;
+6. verify the exact six release assets and SHA sidecars;
+7. record release tag/source/digests in issue #53 and terminal claim closeout.
 
 ## Error handling and safety
 
-- Release workflow fails closed on malformed source SHA, wrong confirmation token, non-main ancestry, tag/source mismatch, missing asset, hash mismatch or prerelease-state mismatch.
+- Release workflow fails closed on malformed source SHA, wrong confirmation token, non-main ancestry, unsafe `VERSION`, tag/source mismatch, missing/extra required family asset, hash mismatch or prerelease-state mismatch.
 - No release step mutates vendor repositories or GitHub native-acceptance variables.
 - No workflow reads or prints signing secrets from AutoCAD/BricsCAD repositories.
 - Production manifests remain disabled when evidence is incomplete.
@@ -204,8 +212,8 @@ This lane is complete when all of the following are true:
 - implementation branch is TDD-green on exact head;
 - reviewed final PR is integrated to current `main`;
 - exact-main CI is green;
-- a public QS3D Family preview release is published from that exact main SHA;
-- the release contains the six required family assets with valid sidecars;
+- public release `family-v$VERSION` is published from that exact main SHA;
+- the release contains exactly the six required family assets with valid sidecars;
 - issue #53 records exact release/source evidence and is closed completed;
 - claim is terminal `COMPLETED` with exact-main CI and release evidence;
 - AutoCAD #52/#58/#60 remain open only for real native evidence;
