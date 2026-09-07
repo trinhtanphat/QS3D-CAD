@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "familyVersion": "0.1.0-preview.1",
+  "generatedFromSource": "b3bd44202c9b5a771379735ecb00d7527f96010f",
+  "components": [
+    {
+      "id": "autocad-2021",
+      "product": "autocad",
+      "hostGeneration": "2021",
+      "enabled": false,
+      "qualification": "pending-integrated-durable-release"
+    },
+    {
+      "id": "autocad-2022",
+      "product": "autocad",
+      "hostGeneration": "2022",
+      "enabled": false,
+      "qualification": "pending-integrated-durable-release"
+    },
+    {
+      "id": "autocad-2023",
+      "product": "autocad",
+      "hostGeneration": "2023",
+      "enabled": false,
+      "qualification": "pending-integrated-durable-release"
+    },
+    {
+      "id": "autocad-2024",
+      "product": "autocad",
+      "hostGeneration": "2024",
+      "enabled": false,
+      "qualification": "pending-integrated-durable-release"
+    },
+    {
+      "id": "autocad-2025",
+      "product": "autocad",
+      "hostGeneration": "2025",
+      "enabled": false,
+      "qualification": "pending-integrated-durable-release"
+    },
+    {
+      "id": "autocad-2026",
+      "product": "autocad",
+      "hostGeneration": "2026",
+      "enabled": false,
+      "qualification": "pending-integrated-release-and-native-runtime-matrix"
+    },
+    {
+      "id": "autocad-2027",
+      "product": "autocad",
+      "hostGeneration": "2027",
+      "enabled": false,
+      "qualification": "pending-integrated-durable-release"
+    },
+    {
+      "id": "bricscad-v25-preview-10316",
+      "product": "bricscad",
+      "hostGeneration": "V25",
+      "enabled": false,
+      "qualification": "preview-source-validated-native-pending-zip-destination-contract-pending",
+      "repository": "trinhtanphat/QS3D-BricsCAD",
+      "releaseTag": "v0.1.0-preview.10316",
+      "sourceSha": "25095112edace7a7f889f73eb7c1f5449ef94a7d",
+      "assetName": "QS3D-BricsCAD-V25.zip",
+      "downloadUrl": "https://github.com/trinhtanphat/QS3D-BricsCAD/releases/download/v0.1.0-preview.10316/QS3D-BricsCAD-V25.zip",
+      "sha256": "bfa028ec855a9eefb464cee553cb09e00da7232ab7e1ee06c0225a471276e6f9",
+      "bytes": 2470954,
+      "packageKind": "zip",
+      "installStrategy": "extract"
+    },
+    {
+      "id": "bricscad-v26",
+      "product": "bricscad",
+      "hostGeneration": "V26",
+      "enabled": false,
+      "qualification": "pending-durable-qualified-release-asset"
+    },
+    {
+      "id": "standalone-preview-4",
+      "product": "standalone",
+      "hostGeneration": "standalone",
+      "enabled": false,
+      "qualification": "reference-preview-native-dwg-pending",
+      "repository": "trinhtanphat/QS3D-CAD",
+      "releaseTag": "v0.1.0-preview.4",
+      "sourceSha": "7c4b25b7dbc3b925a710c1bd9deb7324e0ec53b0",
+      "assetName": "QS3D-CAD-Setup-win-x64.exe",
+      "downloadUrl": "https://github.com/trinhtanphat/QS3D-CAD/releases/download/v0.1.0-preview.4/QS3D-CAD-Setup-win-x64.exe",
+      "sha256": "f49855fb61a3a72e00ef4c2acedb35948fec33df0da09f13b89346cf5dd0c33e",
+      "bytes": 50146869,
+      "packageKind": "exe",
+      "installStrategy": "execute",
+      "arguments": ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]
+    }
+  ]
+}
