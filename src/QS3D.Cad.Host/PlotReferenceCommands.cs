@@ -10,12 +10,17 @@ public static class PlotReferenceCommands
     {
         ArgumentNullException.ThrowIfNull(registry);
         registry.Register(new Command());
+        PlotManagementCommands.RegisterAll(registry);
     }
 
     private sealed class Command : ICadCommand
     {
         public string Name => "PLOTREF";
-        public CommandFlags Flags => CommandFlags.RequiresDocument | CommandFlags.ReadOnly;
+
+        // The legacy command records a request in the reference plot service, so it is not
+        // read-only. It is retained as a compatibility wrapper while the explicit commands
+        // expose precise flags and diagnostics.
+        public CommandFlags Flags => CommandFlags.RequiresDocument;
 
         public CommandResult Execute(CommandContext context)
         {
