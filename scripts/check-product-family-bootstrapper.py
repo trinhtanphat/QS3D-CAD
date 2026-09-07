@@ -125,6 +125,11 @@ if FAMILY_RELEASE_WORKFLOW.is_file():
         "workflow_dispatch",
         "confirm_release",
         "source_sha",
+        "push:",
+        "branches:",
+        "family-release/**",
+        "github.event_name",
+        "github.sha",
         "RELEASE",
         "family-v",
         "git merge-base --is-ancestor",
@@ -144,7 +149,7 @@ if FAMILY_RELEASE_WORKFLOW.is_file():
         if token not in workflow_text:
             errors.append(f"family release workflow missing required token: {token}")
     if "push:" in workflow_text and "tags:" in workflow_text:
-        errors.append("family release workflow must remain manual-dispatch only in this lane")
+        errors.append("family release workflow must not use tag-triggered publication in this lane")
 
 if errors:
     print("QS3D product-family bootstrapper guard FAILED", file=sys.stderr)
