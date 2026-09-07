@@ -26,7 +26,11 @@ public static class HostGenerationMapper
     {
         hostGeneration = string.Empty;
         if (string.Equals(product, "autocad", StringComparison.OrdinalIgnoreCase))
-            return AutoCad.TryGetValue(vendorVersion, out hostGeneration!);
+        {
+            if (!AutoCad.TryGetValue(vendorVersion, out var mapped)) return false;
+            hostGeneration = mapped;
+            return true;
+        }
         if (string.Equals(product, "bricscad", StringComparison.OrdinalIgnoreCase))
         {
             if (vendorVersion.StartsWith("V25", StringComparison.OrdinalIgnoreCase)) { hostGeneration = "V25"; return true; }
@@ -69,14 +73,25 @@ public sealed class WindowsRegistryHostDiscovery : IHostDiscovery
             if (!HostGenerationMapper.TryMap("autocad", version, out var generation)) continue;
             using var versionKey = root.OpenSubKey(version);
             if (versionKey is null) continue;
-            foreach (var locale in versionKey.GetSubKeyNames().DefaultIfEmpty(string.Empty))
+            var locales = versionKey.GetSubKeyNames();
+            if (locales.Length == 0)
             {
-                using var localeKey = string.IsNullOrEmpty(locale) ? versionKey : versionKey.OpenSubKey(locale);
-                var rootFolder = localeKey?.GetValue("AcadLocation") as string ?? localeKey?.GetValue("InstallLocation") as string;
-                if (!string.IsNullOrWhiteSpace(rootFolder))
-                    output.Add(new("autocad", generation, rootFolder, $"registry:{hive}:{view}:{version}"));
+                AddAutoCadLocation(versionKey, generation, hive, view, version, output);
+                continue;
+            }
+            foreach (var locale in locales)
+            {
+                using var localeKey = versionKey.OpenSubKey(locale);
+                if (localeKey is not null) AddAutoCadLocation(localeKey, generation, hive, view, version, output);
             }
         }
+    }
+
+    private static void AddAutoCadLocation(RegistryKey key, string generation, RegistryHive hive, RegistryView view, string version, List<HostInstallation> output)
+    {
+        var rootFolder = key.GetValue("AcadLocation") as string ?? key.GetValue("InstallLocation") as string;
+        if (!string.IsNullOrWhiteSpace(rootFolder))
+            output.Add(new("autocad", generation, rootFolder, $"registry:{hive}:{view}:{version}"));
     }
 
     private static void DiscoverBricsCad(RegistryKey baseKey, RegistryHive hive, RegistryView view, List<HostInstallation> output)
