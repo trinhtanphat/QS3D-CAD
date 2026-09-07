@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Net;
 using System.Security.Cryptography;
 using QS3D.ProductBootstrapper;
 
@@ -11,6 +12,7 @@ internal static class BootstrapperBehaviorSmoke
         TestHostMapping();
         TestExactPlanningAndDryRun();
         TestPackageVerification();
+        TestTrustedRedirects();
         TestSafeZip();
     }
 
@@ -72,6 +74,35 @@ internal static class BootstrapperBehaviorSmoke
         finally { Directory.Delete(root, true); }
     }
 
+    private static void TestTrustedRedirects()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "qs3d-redirect-smoke-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var bytes = "release-bytes"u8.ToArray();
+            var component = Enabled("redirect", "autocad", "2026");
+            component.Bytes = bytes.Length;
+            component.Sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+            var destination = Path.Combine(root, "good.bin");
+            using (var client = new HttpClient(new RedirectFixtureHandler(bytes, evil: false)))
+            using (var downloader = new HttpPackageDownloader(client))
+                downloader.DownloadAsync(component, destination, CancellationToken.None).GetAwaiter().GetResult();
+            Smoke.True(File.Exists(destination), "Trusted GitHub release redirect did not produce verified package.");
+
+            var evilDestination = Path.Combine(root, "evil.bin");
+            using (var client = new HttpClient(new RedirectFixtureHandler(bytes, evil: true)))
+            using (var downloader = new HttpPackageDownloader(client))
+            {
+                Smoke.Throws<InvalidDataException>(
+                    () => downloader.DownloadAsync(component, evilDestination, CancellationToken.None).GetAwaiter().GetResult(),
+                    "Redirect outside trusted GitHub release hosts must fail closed.");
+            }
+            Smoke.True(!File.Exists(evilDestination), "Rejected redirect must not leave package bytes.");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private static void TestSafeZip()
     {
         var root = Path.Combine(Path.GetTempPath(), "qs3d-zip-smoke-" + Guid.NewGuid().ToString("N"));
@@ -120,5 +151,30 @@ internal static class BootstrapperBehaviorSmoke
     {
         public int Calls { get; private set; }
         public Task<int> InstallAsync(ProductComponent component, string packagePath, CancellationToken cancellationToken) { Calls++; return Task.FromResult(0); }
+    }
+
+    private sealed class RedirectFixtureHandler(byte[] payload, bool evil) : HttpMessageHandler
+    {
+        private int _calls;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            _calls++;
+            if (_calls == 1)
+            {
+                var response = new HttpResponseMessage(HttpStatusCode.Redirect)
+                {
+                    RequestMessage = request
+                };
+                response.Headers.Location = new Uri(evil
+                    ? "https://evil.example/package?sig=x"
+                    : "https://release-assets.githubusercontent.com/package?sig=x");
+                return Task.FromResult(response);
+            }
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                RequestMessage = request,
+                Content = new ByteArrayContent(payload)
+            });
+        }
     }
 }
