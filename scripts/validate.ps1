@@ -23,6 +23,9 @@ Invoke-CheckedNative 'QS3D-CAD preflight' 'python' @('scripts/preflight.py')
 Write-Host '== QS3D-CAD source boundary =='
 Invoke-CheckedNative 'QS3D-CAD source boundary' 'python' @('scripts/check-standalone-source-boundary.py')
 
+Write-Host '== QS3D product-family bootstrapper boundary =='
+Invoke-CheckedNative 'QS3D product-family bootstrapper boundary' 'python' @('scripts/check-product-family-bootstrapper.py')
+
 Write-Host '== QS3D-CAD release contract =='
 Invoke-CheckedNative 'QS3D-CAD release contract' 'python' @('scripts/check-release-contract.py')
 
