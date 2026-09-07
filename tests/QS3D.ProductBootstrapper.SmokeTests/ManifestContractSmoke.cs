@@ -59,12 +59,10 @@ internal static class ManifestContractSmoke
             """);
             Smoke.Throws<InvalidDataException>(() => ProductFamilyManifestLoader.Load(invalidEnabled), "Enabled package without exact identity/integrity metadata must fail closed.");
 
-            var productionManifest = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "installer", "product-family.manifest.json"));
-            if (File.Exists(productionManifest))
-            {
-                var initial = ProductFamilyManifestLoader.Load(productionManifest);
-                Smoke.True(initial.Components.Where(c => c.Product is "autocad" or "bricscad").All(c => !c.Enabled), "Initial vendor-host manifest must remain fail-closed pending durable releases/contracts.");
-            }
+            var productionManifest = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "installer", "product-family.manifest.json"));
+            Smoke.True(File.Exists(productionManifest), "Packaged source family manifest must be present during repository smoke.");
+            var initial = ProductFamilyManifestLoader.Load(productionManifest);
+            Smoke.True(initial.Components.Where(c => c.Product is "autocad" or "bricscad").All(c => !c.Enabled), "Initial vendor-host manifest must remain fail-closed pending durable releases/contracts.");
         }
         finally { Directory.Delete(root, recursive: true); }
     }
