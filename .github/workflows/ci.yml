@@ -12,7 +12,7 @@ permissions:
 jobs:
   validate:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,7 +54,26 @@ jobs:
           if ($declared -ne $actual) { throw "Windows installer checksum sidecar does not match the installer." }
           Write-Host "Windows x64 installer PASS: $installer"
 
-      - name: Retain validated Windows installer
+      - name: Build product-family bootstrapper package smoke
+        shell: pwsh
+        run: |
+          ./scripts/package-family-bootstrapper.ps1 -SkipValidation
+          if ($LASTEXITCODE -ne 0) { throw "Family bootstrapper packaging failed with exit code $LASTEXITCODE." }
+          $paths = @(
+            "artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe",
+            "artifacts/family-bootstrapper/product-family.manifest.json"
+          )
+          foreach ($path in $paths) {
+            $sidecar = "$path.sha256"
+            if (-not (Test-Path $path)) { throw "Missing family bootstrapper artifact: $path" }
+            if (-not (Test-Path $sidecar)) { throw "Missing SHA-256 sidecar: $sidecar" }
+            $actual = (Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
+            $declared = ((Get-Content $sidecar -Raw).Trim() -split '\s+')[0].ToLowerInvariant()
+            if ($actual -ne $declared) { throw "Family bootstrapper sidecar mismatch: $path" }
+          }
+          Write-Host "QS3D family bootstrapper package smoke PASS"
+
+      - name: Retain validated Windows artifacts
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
@@ -62,5 +81,9 @@ jobs:
           path: |
             artifacts/installer/QS3D-CAD-Setup-win-x64.exe
             artifacts/installer/QS3D-CAD-Setup-win-x64.exe.sha256
+            artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe
+            artifacts/family-bootstrapper/QS3D-Family-Setup-win-x64.exe.sha256
+            artifacts/family-bootstrapper/product-family.manifest.json
+            artifacts/family-bootstrapper/product-family.manifest.json.sha256
           if-no-files-found: error
           retention-days: 30
