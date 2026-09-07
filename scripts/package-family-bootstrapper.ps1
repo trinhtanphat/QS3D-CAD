@@ -39,22 +39,29 @@ try {
 
     $exe = Join-Path $outputDir "QS3D-Family-Setup-win-x64.exe"
     $manifestSource = Join-Path $root "installer\product-family.manifest.json"
+    $engineeringManifestSource = Join-Path $root "installer\product-family.engineering.manifest.json"
     $manifest = Join-Path $outputDir "product-family.manifest.json"
+    $engineeringManifest = Join-Path $outputDir "product-family.engineering.manifest.json"
     Copy-Item -LiteralPath $publishedExe -Destination $exe -Force
     Copy-Item -LiteralPath $manifestSource -Destination $manifest -Force
+    Copy-Item -LiteralPath $engineeringManifestSource -Destination $engineeringManifest -Force
 
-    foreach ($path in @($exe, $manifest)) {
+    foreach ($path in @($exe, $manifest, $engineeringManifest)) {
         $hash = (Get-FileHash -Algorithm SHA256 $path).Hash.ToLowerInvariant()
         $sidecar = "$path.sha256"
         Set-Content -LiteralPath $sidecar -Value "$hash  $([IO.Path]::GetFileName($path))" -Encoding ascii
     }
 
     & $exe --manifest $manifest --dry-run
-    if ($LASTEXITCODE -ne 0) { throw "Published bootstrapper dry-run failed with exit code $LASTEXITCODE." }
+    if ($LASTEXITCODE -ne 0) { throw "Published bootstrapper production-manifest dry-run failed with exit code $LASTEXITCODE." }
+
+    & $exe --manifest $engineeringManifest --dry-run
+    if ($LASTEXITCODE -ne 0) { throw "Published bootstrapper engineering-manifest dry-run failed with exit code $LASTEXITCODE." }
 
     Write-Host "QS3D family bootstrapper package PASS"
     Write-Host "Executable: $exe"
-    Write-Host "Manifest: $manifest"
+    Write-Host "Production manifest: $manifest"
+    Write-Host "Engineering manifest: $engineeringManifest"
 }
 finally {
     Pop-Location
