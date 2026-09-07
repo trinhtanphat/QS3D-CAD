@@ -50,6 +50,8 @@ try {
             throw 'AutoCAD native qualification handoff mismatch smoke unexpectedly succeeded.'
         }
         Write-Host "Expected mismatch rejection observed with exit code $exitCode."
+        # The child failure is the expected assertion outcome; do not leak it as this validator's process status.
+        $global:LASTEXITCODE = 0
     }
     finally {
         Remove-Item -LiteralPath $tempManifest -Force -ErrorAction SilentlyContinue
