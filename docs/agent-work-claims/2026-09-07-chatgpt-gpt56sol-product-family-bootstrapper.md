@@ -1,6 +1,6 @@
 # Work claim — QS3D product-family bootstrapper
 
-- Status: `SOURCE_READY`
+- Status: `COMPLETED`
 - Agent: `chatgpt-gpt56sol`
 - Registered: `2026-09-07T13:13:00+07:00`
 - Coordination baseline main SHA: `bc0232c0dacc4d48db120123a95d598dccdde56e`
@@ -10,6 +10,9 @@
 - Implementation branch: `agent/chatgpt-gpt56sol/product-family-bootstrapper-20260907`
 - Validated implementation source head: `5fc621f202d4864f66b1229f12c294b632b6b686`
 - Exact implementation CI: `QS3D CAD CI` run `34092886217` / run #131 / job `101649956248` — `SUCCESS`
+- Final PR-head: `c72fda3c0cd28551bee796d5933156ed46c8ed54`
+- Integrated main SHA: `68f7633b2dc797ea22a371fa5a6fdcad24ddc40a`
+- Exact-main CI: `QS3D CAD CI` run `34095686498` / run #133 / job `101658720945` — `SUCCESS`
 
 ## Delivered scope
 
@@ -30,6 +33,9 @@
 - Recovery run `34092719481` exposed a real package-stream lifetime defect: SHA verification attempted to reopen a `FileShare.None` destination before its write stream was disposed.
 - Source recovery `5fc621f202d4864f66b1229f12c294b632b6b686` closes/flushed the download stream before digest verification.
 - Exact source-head run `34092886217` then passed standalone authoritative validation, family validation, standalone installer smoke and family-bootstrapper package smoke.
+- Exact final PR-head run `34093145150` / #132 also passed.
+- PR #49 merged to `main` as `68f7633b2dc797ea22a371fa5a6fdcad24ddc40a`.
+- Exact-main run `34095686498` / #133 passed authoritative validation, family validation, Windows installer smoke, family-bootstrapper package smoke and artifact retention.
 
 ## Release truth / native boundary
 
@@ -49,9 +55,9 @@ Final source diff was audited against open PRs #21/#23/#25/#27/#29/#31/#33/#35/#
 ## Completion verdict
 
 - `SOURCE IMPLEMENTATION: COMPLETE`
-- `EXACT IMPLEMENTATION CI: GREEN`
-- `READY_FOR_REVIEW: YES`
+- `MERGED TO MAIN: YES`
+- `EXACT-MAIN CI: GREEN`
 - `NATIVE HOST QUALIFICATION: PENDING_NATIVE / HOST-RELEASE OWNED`
-- `MERGED TO MAIN: NO`
+- `SESSION CAN BE CLOSED/DELETED: YES`
 
-The claim update itself is documentation-only and must still be covered by the final PR-head CI before PR #49 is marked ready. Final integration to `main` requires separate explicit owner authorization.
+This claim is terminal. Future engineering/native qualification work uses a separate claim.
