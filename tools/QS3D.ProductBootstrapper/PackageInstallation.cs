@@ -34,7 +34,10 @@ public sealed class PackageInstaller : IPackageInstaller
     {
         var strategy = component.InstallStrategy?.ToLowerInvariant();
         if (strategy == "execute")
-            return await _runner.RunAsync(packagePath, component.Arguments ?? Array.Empty<string>(), cancellationToken).ConfigureAwait(false);
+        {
+            IReadOnlyList<string> arguments = component.Arguments is null ? Array.Empty<string>() : component.Arguments;
+            return await _runner.RunAsync(packagePath, arguments, cancellationToken).ConfigureAwait(false);
+        }
         if (strategy == "extract")
         {
             if (string.IsNullOrWhiteSpace(component.Destination)) throw new InvalidDataException("ZIP install requires destination.");
@@ -68,7 +71,7 @@ public static class SafeZipInstaller
             {
                 var normalized = entry.FullName.Replace('\\', '/');
                 if (string.IsNullOrWhiteSpace(normalized)) throw new InvalidDataException("ZIP contains a blank path.");
-                if (normalized.StartsWith('/', StringComparison.Ordinal) || normalized.StartsWith("../", StringComparison.Ordinal) ||
+                if (normalized.StartsWith("/", StringComparison.Ordinal) || normalized.StartsWith("../", StringComparison.Ordinal) ||
                     normalized.Contains("/../", StringComparison.Ordinal) || normalized.Contains(':', StringComparison.Ordinal))
                     throw new InvalidDataException("ZIP contains an unsafe path.");
                 normalized = normalized.TrimEnd('/');
@@ -85,7 +88,7 @@ public static class SafeZipInstaller
                 var relative = entry.FullName.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
                 var target = Path.GetFullPath(Path.Combine(staging, relative));
                 if (!target.StartsWith(stagingRoot, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("ZIP path escapes staging root.");
-                if (entry.FullName.EndsWith('/', StringComparison.Ordinal) || entry.FullName.EndsWith('\\'))
+                if (entry.FullName.EndsWith("/", StringComparison.Ordinal) || entry.FullName.EndsWith("\\", StringComparison.Ordinal))
                 {
                     Directory.CreateDirectory(target);
                     continue;
