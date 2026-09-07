@@ -7,7 +7,9 @@ public sealed class StandaloneCommandCatalog
     private static readonly HashSet<string> ReservedApplicationCommands = new(StringComparer.OrdinalIgnoreCase)
     {
         "UNDO",
-        "REDO"
+        "REDO",
+        "U",
+        "RE"
     };
 
     private readonly CommandRegistry _registry;
