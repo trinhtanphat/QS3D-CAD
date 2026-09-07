@@ -1,56 +1,56 @@
 {
   "schemaVersion": 1,
-  "familyVersion": "0.1.0-preview.1",
-  "generatedFromSource": "b3bd44202c9b5a771379735ecb00d7527f96010f",
+  "familyVersion": "0.1.0-preview.2",
+  "generatedFromSource": "68f7633b2dc797ea22a371fa5a6fdcad24ddc40a",
   "components": [
     {
       "id": "autocad-2021",
       "product": "autocad",
       "hostGeneration": "2021",
       "enabled": false,
-      "qualification": "pending-integrated-durable-release"
+      "qualification": "source-integrated-engineering-candidate-available-native-signing-pending"
     },
     {
       "id": "autocad-2022",
       "product": "autocad",
       "hostGeneration": "2022",
       "enabled": false,
-      "qualification": "pending-integrated-durable-release"
+      "qualification": "source-integrated-engineering-candidate-available-native-signing-pending"
     },
     {
       "id": "autocad-2023",
       "product": "autocad",
       "hostGeneration": "2023",
       "enabled": false,
-      "qualification": "pending-integrated-durable-release"
+      "qualification": "source-integrated-engineering-candidate-available-native-signing-pending"
     },
     {
       "id": "autocad-2024",
       "product": "autocad",
       "hostGeneration": "2024",
       "enabled": false,
-      "qualification": "pending-integrated-durable-release"
+      "qualification": "source-integrated-engineering-candidate-available-native-signing-pending"
     },
     {
       "id": "autocad-2025",
       "product": "autocad",
       "hostGeneration": "2025",
       "enabled": false,
-      "qualification": "pending-integrated-durable-release"
+      "qualification": "source-integrated-engineering-candidate-available-native-signing-pending"
     },
     {
       "id": "autocad-2026",
       "product": "autocad",
       "hostGeneration": "2026",
       "enabled": false,
-      "qualification": "pending-integrated-release-and-native-runtime-matrix"
+      "qualification": "source-integrated-engineering-candidate-available-native-runtime-matrix-signing-pending"
     },
     {
       "id": "autocad-2027",
       "product": "autocad",
       "hostGeneration": "2027",
       "enabled": false,
-      "qualification": "pending-integrated-durable-release"
+      "qualification": "source-integrated-engineering-candidate-available-native-signing-pending"
     },
     {
       "id": "bricscad-v25-preview-10316",

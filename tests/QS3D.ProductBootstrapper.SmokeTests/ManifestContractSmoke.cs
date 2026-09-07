@@ -4,6 +4,12 @@ namespace QS3D.ProductBootstrapper.SmokeTests;
 
 internal static class ManifestContractSmoke
 {
+    private const string EngineeringTag = "test-v0.1.0-ci.266";
+    private const string EngineeringSourceSha = "8dd65a7e5061430f76e027467261beb8f18c69a8";
+    private const string EngineeringAsset = "QS3D-AutoCAD-0.0.0-ci-Setup.exe";
+    private const string EngineeringSha256 = "9452fd0bac1ece086393499f11716d265f0a49d8266ddd2cc47d55bc9d3a07de";
+    private const long EngineeringBytes = 67998359;
+
     public static void Run()
     {
         var root = Path.Combine(Path.GetTempPath(), "qs3d-family-manifest-" + Guid.NewGuid().ToString("N"));
@@ -59,10 +65,25 @@ internal static class ManifestContractSmoke
             """);
             Smoke.Throws<InvalidDataException>(() => ProductFamilyManifestLoader.Load(invalidEnabled), "Enabled package without exact identity/integrity metadata must fail closed.");
 
-            var productionManifest = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "installer", "product-family.manifest.json"));
+            var repositoryRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+            var productionManifest = Path.Combine(repositoryRoot, "installer", "product-family.manifest.json");
             Smoke.True(File.Exists(productionManifest), "Packaged source family manifest must be present during repository smoke.");
             var initial = ProductFamilyManifestLoader.Load(productionManifest);
             Smoke.True(initial.Components.Where(c => c.Product is "autocad" or "bricscad").All(c => !c.Enabled), "Initial vendor-host manifest must remain fail-closed pending durable releases/contracts.");
+            Smoke.True(initial.Components.All(c => string.IsNullOrWhiteSpace(c.ReleaseTag) || !c.ReleaseTag.StartsWith("test-v", StringComparison.Ordinal)), "Production family manifest must not embed engineering test release tags.");
+
+            var engineeringManifest = Path.Combine(repositoryRoot, "installer", "product-family.engineering.manifest.json");
+            Smoke.True(File.Exists(engineeringManifest), "Engineering family manifest must be present during repository smoke.");
+            var engineering = ProductFamilyManifestLoader.Load(engineeringManifest);
+            var autocad = engineering.Components.Where(c => c.Product == "autocad").OrderBy(c => c.HostGeneration, StringComparer.Ordinal).ToArray();
+            Smoke.Equal(7, autocad.Length, "Engineering manifest must contain exactly seven AutoCAD generations.");
+            Smoke.True(autocad.All(c => c.Enabled), "Engineering AutoCAD components must be enabled only for native-test planning.");
+            Smoke.True(autocad.All(c => c.ReleaseTag == EngineeringTag), "Engineering components must pin exact CI #266 tag.");
+            Smoke.True(autocad.All(c => c.SourceSha == EngineeringSourceSha), "Engineering components must pin exact integrated AutoCAD source SHA.");
+            Smoke.True(autocad.All(c => c.AssetName == EngineeringAsset), "Engineering components must pin exact Setup asset.");
+            Smoke.True(autocad.All(c => c.Sha256 == EngineeringSha256), "Engineering components must pin exact Setup SHA-256.");
+            Smoke.True(autocad.All(c => c.Bytes == EngineeringBytes), "Engineering components must pin exact Setup byte count.");
+            Smoke.True(autocad.All(c => c.Qualification.Contains("engineering", StringComparison.OrdinalIgnoreCase) && c.Qualification.Contains("not-native-pass", StringComparison.OrdinalIgnoreCase)), "Engineering components must explicitly remain non-production/native-pending evidence.");
         }
         finally { Directory.Delete(root, recursive: true); }
     }

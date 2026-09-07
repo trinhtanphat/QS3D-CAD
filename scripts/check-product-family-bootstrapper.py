@@ -5,7 +5,22 @@ import json, pathlib, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "QS3D.ProductBootstrapper"
 MANIFEST = ROOT / "installer" / "product-family.manifest.json"
+ENGINEERING_MANIFEST = ROOT / "installer" / "product-family.engineering.manifest.json"
+PACKAGE_SCRIPT = ROOT / "scripts" / "package-family-bootstrapper.ps1"
 errors: list[str] = []
+
+AUTOCAD_ENGINEERING = {
+    "repository": "trinhtanphat/QS3D-AutoCAD",
+    "releaseTag": "test-v0.1.0-ci.266",
+    "sourceSha": "8dd65a7e5061430f76e027467261beb8f18c69a8",
+    "assetName": "QS3D-AutoCAD-0.0.0-ci-Setup.exe",
+    "downloadUrl": "https://github.com/trinhtanphat/QS3D-AutoCAD/releases/download/test-v0.1.0-ci.266/QS3D-AutoCAD-0.0.0-ci-Setup.exe",
+    "sha256": "9452fd0bac1ece086393499f11716d265f0a49d8266ddd2cc47d55bc9d3a07de",
+    "bytes": 67998359,
+    "packageKind": "exe",
+    "installStrategy": "execute",
+}
+AUTOCAD_GENERATIONS = ("2021", "2022", "2023", "2024", "2025", "2026", "2027")
 
 required = [
     TOOL / "QS3D.ProductBootstrapper.csproj",
@@ -17,6 +32,8 @@ required = [
     TOOL / "PackageInstallation.cs",
     TOOL / "BootstrapperCoordinator.cs",
     MANIFEST,
+    ENGINEERING_MANIFEST,
+    PACKAGE_SCRIPT,
     ROOT / "docs" / "PRODUCT-FAMILY-INSTALLER.md",
 ]
 for path in required:
@@ -39,7 +56,14 @@ try:
     if not isinstance(components, list) or len(components) > 32: errors.append("family manifest components must be a list of at most 32")
     else:
         by_key = {(c.get("product"), c.get("hostGeneration")): c for c in components if isinstance(c, dict)}
-        for generation in ("2021", "2022", "2023", "2024", "2025", "2026", "2027"):
+        for component in (c for c in components if isinstance(c, dict)):
+            release_tag = str(component.get("releaseTag") or "")
+            qualification = str(component.get("qualification") or "").lower()
+            if release_tag.startswith("test-v"):
+                errors.append(f"production manifest component {component.get('id')} must not reference engineering test release {release_tag}")
+            if component.get("enabled") is True and "engineering" in qualification:
+                errors.append(f"production-enabled component {component.get('id')} must not carry engineering qualification")
+        for generation in AUTOCAD_GENERATIONS:
             component = by_key.get(("autocad", generation))
             if not component: errors.append(f"missing AutoCAD {generation} manifest component")
             elif component.get("enabled") is not False: errors.append(f"AutoCAD {generation} must remain pending/disabled until durable integrated release")
@@ -49,6 +73,38 @@ try:
             elif component.get("enabled") is not False: errors.append(f"BricsCAD {generation} initial family component must remain disabled")
 except Exception as exc:
     errors.append(f"could not parse family manifest: {exc}")
+
+if ENGINEERING_MANIFEST.is_file():
+    try:
+        engineering = json.loads(ENGINEERING_MANIFEST.read_text(encoding="utf-8"))
+        if engineering.get("schemaVersion") != 1: errors.append("engineering family manifest schemaVersion must equal 1")
+        components = engineering.get("components")
+        if not isinstance(components, list):
+            errors.append("engineering family manifest components must be a list")
+        else:
+            by_key = {(c.get("product"), c.get("hostGeneration")): c for c in components if isinstance(c, dict)}
+            if len(components) != len(AUTOCAD_GENERATIONS):
+                errors.append("engineering family manifest must contain exactly seven AutoCAD generations")
+            for generation in AUTOCAD_GENERATIONS:
+                component = by_key.get(("autocad", generation))
+                if not component:
+                    errors.append(f"engineering manifest missing AutoCAD {generation}")
+                    continue
+                if component.get("enabled") is not True:
+                    errors.append(f"engineering AutoCAD {generation} component must be enabled for native-test planning")
+                qualification = str(component.get("qualification") or "").lower()
+                if "engineering" not in qualification or "not-native-pass" not in qualification:
+                    errors.append(f"engineering AutoCAD {generation} must explicitly remain engineering/not-native-pass")
+                for key, expected in AUTOCAD_ENGINEERING.items():
+                    if component.get(key) != expected:
+                        errors.append(f"engineering AutoCAD {generation} {key} drifted from exact CI #266 candidate")
+    except Exception as exc:
+        errors.append(f"could not parse engineering family manifest: {exc}")
+
+if PACKAGE_SCRIPT.is_file():
+    package_text = PACKAGE_SCRIPT.read_text(encoding="utf-8", errors="replace")
+    if "product-family.engineering.manifest.json" not in package_text:
+        errors.append("family bootstrapper package must ship the engineering qualification manifest")
 
 if errors:
     print("QS3D product-family bootstrapper guard FAILED", file=sys.stderr)
