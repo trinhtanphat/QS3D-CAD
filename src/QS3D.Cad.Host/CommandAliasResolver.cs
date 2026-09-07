@@ -6,6 +6,9 @@ internal static class CommandAliasResolver
     {
         ["L"] = "LINE",
         ["C"] = "CIRCLE",
+        ["A"] = "ARC",
+        ["PO"] = "POINT",
+        ["POL"] = "POLYGON",
         ["REC"] = "RECTANG",
         ["M"] = "MOVE",
         ["CO"] = "COPY",

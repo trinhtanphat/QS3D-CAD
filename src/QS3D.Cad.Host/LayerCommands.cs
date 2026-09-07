@@ -11,6 +11,7 @@ public static class LayerCommands
         registry.Register(new LayerCommand());
         registry.Register(new ListLayersCommand());
         PropertyCommands.RegisterAll(registry);
+        ReferencePrimitiveCommands.RegisterAll(registry);
     }
 
     private sealed class ListLayersCommand : ICadCommand

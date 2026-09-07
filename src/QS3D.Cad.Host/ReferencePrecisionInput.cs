@@ -175,6 +175,61 @@ public static class ReferencePrecisionInput
             return;
         }
 
+        if (ReferencePrimitiveGeometry.TryGetArc(entity, out var arc))
+        {
+            if ((enabledKinds & CadSnapKind.Endpoint) != 0)
+            {
+                AddCandidate(output, entity.Handle, CadSnapKind.Endpoint, arc.StartPoint, rawPoint, aperture);
+                AddCandidate(output, entity.Handle, CadSnapKind.Endpoint, arc.EndPoint, rawPoint, aperture);
+            }
+            if ((enabledKinds & CadSnapKind.Midpoint) != 0)
+                AddCandidate(output, entity.Handle, CadSnapKind.Midpoint, arc.MidPoint, rawPoint, aperture);
+            if ((enabledKinds & CadSnapKind.Center) != 0)
+                AddCandidate(output, entity.Handle, CadSnapKind.Center, arc.Center, rawPoint, aperture);
+            if ((enabledKinds & CadSnapKind.Quadrant) != 0)
+            {
+                foreach (var angle in new[] { 0d, 90d, 180d, 270d })
+                {
+                    if (ReferencePrimitiveGeometry.AngleOnSweep(angle, arc.StartAngleDegrees, arc.SweepAngleDegrees))
+                        AddCandidate(output, entity.Handle, CadSnapKind.Quadrant, ReferencePrimitiveGeometry.PolarPoint(arc.Center, arc.Radius, angle), rawPoint, aperture);
+                }
+            }
+            if ((enabledKinds & CadSnapKind.Nearest) != 0)
+                AddCandidate(output, entity.Handle, CadSnapKind.Nearest, ReferencePrimitiveGeometry.ClosestPointOnArc(arc, rawPoint), rawPoint, aperture);
+            return;
+        }
+
+        if (ReferencePrimitiveGeometry.TryGetPoint(entity, out var referencePoint))
+        {
+            if ((enabledKinds & CadSnapKind.Endpoint) != 0)
+                AddCandidate(output, entity.Handle, CadSnapKind.Endpoint, referencePoint, rawPoint, aperture);
+            if ((enabledKinds & CadSnapKind.Nearest) != 0)
+                AddCandidate(output, entity.Handle, CadSnapKind.Nearest, referencePoint, rawPoint, aperture);
+            return;
+        }
+
+        if (ReferencePrimitiveGeometry.TryGetRegularPolygon(entity, out var polygon))
+        {
+            var vertices = polygon.Vertices;
+            if ((enabledKinds & CadSnapKind.Endpoint) != 0)
+            {
+                foreach (var vertex in vertices)
+                    AddCandidate(output, entity.Handle, CadSnapKind.Endpoint, vertex, rawPoint, aperture);
+            }
+            if ((enabledKinds & CadSnapKind.Center) != 0)
+                AddCandidate(output, entity.Handle, CadSnapKind.Center, polygon.Center, rawPoint, aperture);
+            for (var index = 0; index < vertices.Count; index++)
+            {
+                var start = vertices[index];
+                var end = vertices[(index + 1) % vertices.Count];
+                if ((enabledKinds & CadSnapKind.Midpoint) != 0)
+                    AddCandidate(output, entity.Handle, CadSnapKind.Midpoint, Midpoint(start, end), rawPoint, aperture);
+                if ((enabledKinds & CadSnapKind.Nearest) != 0 && TryClosestPointOnSegment(start, end, rawPoint, out var nearest))
+                    AddCandidate(output, entity.Handle, CadSnapKind.Nearest, nearest, rawPoint, aperture);
+            }
+            return;
+        }
+
         if (entity.Kind == CadEntityKind.Polyline && TryRectangle(entity, out var rectangle))
         {
             var corners = rectangle.Corners;

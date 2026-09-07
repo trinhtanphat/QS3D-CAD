@@ -74,7 +74,7 @@ public static class BuiltInCommands
         ScaleCoordinateProperty(result, "y2", baseY, factor);
         ScaleCoordinateProperty(result, "cy", baseY, factor);
         ScaleCoordinateProperty(result, CadBlockReferencePropertyNames.InsertionY, baseY, factor);
-        if (entity.Kind == CadEntityKind.Circle)
+        if (entity.Kind is CadEntityKind.Circle or CadEntityKind.Arc || ReferencePrimitiveGeometry.TryGetRegularPolygon(entity, out _))
             ScaleLengthProperty(result, "radius", factor);
         if (entity.Kind == CadEntityKind.BlockReference)
             ScaleLengthProperty(result, CadBlockReferencePropertyNames.UniformScale, factor);
@@ -82,7 +82,7 @@ public static class BuiltInCommands
     }
 
     private static bool SupportsReferenceScale(CadEntityKind kind)
-        => kind is CadEntityKind.Line or CadEntityKind.Polyline or CadEntityKind.Circle or CadEntityKind.BlockReference;
+        => kind is CadEntityKind.Line or CadEntityKind.Polyline or CadEntityKind.Circle or CadEntityKind.Arc or CadEntityKind.Point or CadEntityKind.BlockReference;
 
     private static double AddFinite(double current, double delta, string label)
     {
