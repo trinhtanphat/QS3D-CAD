@@ -17,6 +17,7 @@ public static class SemanticCommands
         registry.Register(new HealthCommand(workspace));
         registry.Register(new CountCommand(workspace));
         SemanticAuthoringCommands.RegisterAll(registry, workspace);
+        CubicostParityCommands.RegisterAll(registry);
     }
 
     private sealed class TagCommand : ICadCommand

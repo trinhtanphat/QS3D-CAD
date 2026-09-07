@@ -35,6 +35,9 @@ Invoke-CheckedNative 'Initialize pinned QS3D-Platform' 'git' @('submodule', 'upd
 Write-Host '== Verify exact Platform checkout =='
 Invoke-CheckedNative 'Verify exact Platform checkout' 'python' @('scripts/check-platform-pin.py')
 
+Write-Host '== QS3D-CAD Cubicost parity boundary =='
+Invoke-CheckedNative 'QS3D-CAD Cubicost parity boundary' 'python' @('scripts/check-cubicost-parity.py')
+
 Write-Host '== QS3D-Platform preflight =='
 Invoke-CheckedNative 'QS3D-Platform preflight' 'python' @('external/QS3D-Platform/scripts/preflight.py')
 
