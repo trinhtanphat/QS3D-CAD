@@ -5,6 +5,7 @@ import json, pathlib, sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 TOOL = ROOT / "tools" / "QS3D.ProductBootstrapper"
 MANIFEST = ROOT / "installer" / "product-family.manifest.json"
+ENGINEERING_MANIFEST = ROOT / "installer" / "product-family.engineering.manifest.json"
 errors: list[str] = []
 
 required = [
@@ -17,6 +18,7 @@ required = [
     TOOL / "PackageInstallation.cs",
     TOOL / "BootstrapperCoordinator.cs",
     MANIFEST,
+    ENGINEERING_MANIFEST,
     ROOT / "docs" / "PRODUCT-FAMILY-INSTALLER.md",
 ]
 for path in required:
@@ -39,6 +41,13 @@ try:
     if not isinstance(components, list) or len(components) > 32: errors.append("family manifest components must be a list of at most 32")
     else:
         by_key = {(c.get("product"), c.get("hostGeneration")): c for c in components if isinstance(c, dict)}
+        for component in (c for c in components if isinstance(c, dict) and c.get("enabled") is True):
+            release_tag = str(component.get("releaseTag") or "")
+            qualification = str(component.get("qualification") or "").lower()
+            if release_tag.startswith("test-v"):
+                errors.append(f"production-enabled component {component.get('id')} must not reference engineering test release {release_tag}")
+            if "engineering" in qualification:
+                errors.append(f"production-enabled component {component.get('id')} must not carry engineering qualification")
         for generation in ("2021", "2022", "2023", "2024", "2025", "2026", "2027"):
             component = by_key.get(("autocad", generation))
             if not component: errors.append(f"missing AutoCAD {generation} manifest component")
