@@ -72,7 +72,7 @@ public static class SafeZipInstaller
                 var normalized = entry.FullName.Replace('\\', '/');
                 if (string.IsNullOrWhiteSpace(normalized)) throw new InvalidDataException("ZIP contains a blank path.");
                 if (normalized.StartsWith("/", StringComparison.Ordinal) || normalized.StartsWith("../", StringComparison.Ordinal) ||
-                    normalized.Contains("/../", StringComparison.Ordinal) || normalized.Contains(':', StringComparison.Ordinal))
+                    normalized.Contains("/../", StringComparison.Ordinal) || normalized.Contains(":", StringComparison.Ordinal))
                     throw new InvalidDataException("ZIP contains an unsafe path.");
                 normalized = normalized.TrimEnd('/');
                 if (normalized.Length == 0) continue;
