@@ -7,6 +7,17 @@ public static class CadBackendQualificationEvidenceJson
 {
     private const int Schema = 1;
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, PropertyNameCaseInsensitive = true, MaxDepth = 16 };
+    private static readonly string[] RootProperties = { "Schema", "Items" };
+    private static readonly string[] ItemProperties =
+    {
+        "BackendId",
+        "BackendVersion",
+        "SourceSha",
+        "QualifiedCapabilities",
+        "QualifiedAt",
+        "EvidenceId",
+        "Passed"
+    };
 
     public static string Serialize(IEnumerable<CadBackendQualificationEvidence> evidence)
     {
@@ -31,8 +42,19 @@ public static class CadBackendQualificationEvidenceJson
     {
         if (string.IsNullOrWhiteSpace(json)) throw new InvalidDataException("Evidence JSON must not be blank.");
         FileDto dto;
-        try { dto = JsonSerializer.Deserialize<FileDto>(json, Options) ?? throw new InvalidDataException("Evidence JSON is empty."); }
-        catch (JsonException ex) { throw new InvalidDataException("Evidence JSON is invalid.", ex); }
+        try
+        {
+            ValidateJsonShape(json);
+            dto = JsonSerializer.Deserialize<FileDto>(json, Options) ?? throw new InvalidDataException("Evidence JSON is empty.");
+        }
+        catch (InvalidDataException)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            throw new InvalidDataException("Evidence JSON is invalid.", ex);
+        }
         if (dto.Schema != Schema) throw new InvalidDataException($"Unsupported evidence schema {dto.Schema}.");
         if (dto.Items is null) throw new InvalidDataException("Evidence items are missing.");
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -47,6 +69,56 @@ public static class CadBackendQualificationEvidenceJson
             result.Add(restored);
         }
         return result;
+    }
+
+    private static void ValidateJsonShape(string json)
+    {
+        using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = Options.MaxDepth });
+        var root = document.RootElement;
+        if (root.ValueKind != JsonValueKind.Object)
+            throw new InvalidDataException("Evidence JSON root must be an object.");
+        ValidateProperties(root, "evidence root", RootProperties);
+
+        var items = GetProperty(root, "Items");
+        if (items.ValueKind != JsonValueKind.Array)
+            throw new InvalidDataException("Evidence 'Items' must be an array.");
+        var index = 0;
+        foreach (var item in items.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                throw new InvalidDataException($"Evidence item {index} must be an object.");
+            ValidateProperties(item, $"evidence item {index}", ItemProperties);
+            index++;
+        }
+    }
+
+    private static void ValidateProperties(JsonElement value, string label, IReadOnlyCollection<string> required)
+    {
+        var allowed = required.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in value.EnumerateObject())
+        {
+            if (!allowed.Contains(property.Name))
+                throw new InvalidDataException($"{label} contains unknown property '{property.Name}'.");
+            if (!seen.Add(property.Name))
+                throw new InvalidDataException($"{label} contains duplicate property '{property.Name}'.");
+        }
+
+        foreach (var property in required)
+        {
+            if (!seen.Contains(property))
+                throw new InvalidDataException($"{label} is missing required property '{property}'.");
+        }
+    }
+
+    private static JsonElement GetProperty(JsonElement value, string name)
+    {
+        foreach (var property in value.EnumerateObject())
+        {
+            if (StringComparer.OrdinalIgnoreCase.Equals(property.Name, name))
+                return property.Value;
+        }
+        throw new InvalidDataException($"Evidence JSON is missing required property '{name}'.");
     }
 
     private sealed class FileDto { public int Schema { get; set; } public List<ItemDto>? Items { get; set; } }
