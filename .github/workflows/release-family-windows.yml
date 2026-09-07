@@ -11,6 +11,9 @@ on:
         description: "Exact lowercase 40-character QS3D-CAD source SHA"
         required: true
         type: string
+  push:
+    branches:
+      - 'family-release/**'
 
 permissions:
   contents: write
@@ -23,7 +26,7 @@ jobs:
       - name: Checkout exact family release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}
           submodules: recursive
           fetch-depth: 0
 
@@ -36,14 +39,27 @@ jobs:
         id: identity
         shell: pwsh
         env:
-          RELEASE_CONFIRMATION: ${{ inputs.confirm_release }}
-          RELEASE_SOURCE_INPUT: ${{ inputs.source_sha }}
+          RELEASE_EVENT_NAME: ${{ github.event_name }}
+          RELEASE_REF_NAME: ${{ github.ref_name }}
+          RELEASE_CONFIRMATION: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_release || 'RELEASE' }}
+          RELEASE_SOURCE_INPUT: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}
         run: |
-          if ($env:RELEASE_CONFIRMATION -ne 'RELEASE') {
-            throw 'Manual family release requires confirm_release=RELEASE.'
+          if ($env:RELEASE_EVENT_NAME -eq 'workflow_dispatch') {
+            if ($env:RELEASE_CONFIRMATION -ne 'RELEASE') {
+              throw 'Manual family release requires confirm_release=RELEASE.'
+            }
           }
+          elseif ($env:RELEASE_EVENT_NAME -eq 'push') {
+            if ($env:RELEASE_REF_NAME -notlike 'family-release/*') {
+              throw "Branch-triggered family release requires family-release/**; got '$env:RELEASE_REF_NAME'."
+            }
+          }
+          else {
+            throw "Unsupported family release event '$env:RELEASE_EVENT_NAME'."
+          }
+
           if ($env:RELEASE_SOURCE_INPUT -cnotmatch '^[0-9a-f]{40}$') {
-            throw 'Manual family release requires exact lowercase 40-character source_sha.'
+            throw 'Family release requires exact lowercase 40-character source SHA.'
           }
 
           $sourceSha = (git rev-parse HEAD).Trim().ToLowerInvariant()
