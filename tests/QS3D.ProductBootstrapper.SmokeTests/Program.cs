@@ -5,6 +5,7 @@ internal static class Program
     public static int Main()
     {
         ManifestContractSmoke.Run();
+        BootstrapperBehaviorSmoke.Run();
         Console.WriteLine("QS3D product bootstrapper smoke tests passed.");
         return 0;
     }
